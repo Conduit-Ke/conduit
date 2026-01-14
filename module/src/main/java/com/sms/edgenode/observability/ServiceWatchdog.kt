@@ -17,6 +17,7 @@ class ServiceWatchdog(context: Context, params: WorkerParameters) : CoroutineWor
 
     private fun isServiceRunning(): Boolean {
         val manager = applicationContext.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+        @Suppress("DEPRECATION")
         return manager.getRunningServices(Int.MAX_VALUE).any {
             it.service.className == RoutingService::class.java.name
         }

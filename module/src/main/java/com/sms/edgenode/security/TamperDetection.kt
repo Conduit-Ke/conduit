@@ -82,15 +82,6 @@ object TamperDetection {
             return true
         }
 
-        // Check for root management apps
-        val rootApps = listOf(
-            "com.noshufou.android.su",
-            "com.thirdparty.superuser",
-            "eu.chainfire.supersu",
-            "com.koushikdutta.superuser",
-            "com.topjohnwu.magisk"
-        )
-
         try {
             val pm = Runtime.getRuntime().exec("which su")
             if (pm.inputStream.bufferedReader().readLine() != null) {

@@ -38,19 +38,21 @@ jobs:
       - name: Generate SHA256 Checksum
         run: |
           cd module/build/outputs/apk/release
-          sha256sum module-release.apk > module-release.apk.sha256
-          echo "CHECKSUM=$(cat module-release.apk.sha256 | awk '{print $1}')" >> $GITHUB_ENV
+          sha256sum conduIT.apk > conduIT.apk.sha256
+          echo "CHECKSUM=$(cat conduIT.apk.sha256 | awk '{print $1}')" >> $GITHUB_ENV
 
       - name: Publish to Public Repository
         id: create_release
         uses: softprops/action-gh-release@v2
         with:
-          # REPLACE with your public repository name (e.g., my-org/sms-gateway-public)
           repository: Conduit-Ke/conduit-releases
           token: ${{ secrets.PUBLIC_REPO_TOKEN }}
+          tag_name: ${{ github.ref_name }}
+          name: Release ${{ github.ref_name }}
           files: |
-            module/build/outputs/apk/release/module-release.apk
-            module/build/outputs/apk/release/module-release.apk.sha256
+            module/build/outputs/apk/release/conduIT.apk
+            module/build/outputs/apk/release/conduIT.apk.sha256
           body_path: CHANGELOG.md
           draft: false
           prerelease: false
+          make_latest: true

@@ -108,7 +108,7 @@ class RoutingEngine(
                     database.smsDao().updateStatus(sms.id, SmsStatus.SUBMITTED, sms.attempts + 1, now, null, null)
                     logEvent("SUBMITTED", sms.id, "Accepted by radio for ${action.target} via SIM $selectedSlot")
                 } else {
-                    simHealthManager.recordFailure(selectedSlot, "RADIO_REJECTED")
+                    simHealthManager.recordFailure(selectedSlot)
                     handleFailure(sms, "RADIO_REJECTED")
                 }
             }

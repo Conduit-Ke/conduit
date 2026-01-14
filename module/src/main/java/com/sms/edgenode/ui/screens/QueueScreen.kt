@@ -12,6 +12,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
+import androidx.compose.material.icons.automirrored.filled.*
+import androidx.compose.material.icons.automirrored.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -82,34 +84,40 @@ fun QueueScreen(modifier: Modifier = Modifier) {
     Column(modifier = modifier.fillMaxSize()) {
         // Gmail-style Search Bar
         SearchBar(
-            query = searchQuery,
-            onQueryChange = { searchQuery = it },
-            onSearch = { 
-                isSearchActive = false
-                addToHistory(it)
+            inputField = {
+                SearchBarDefaults.InputField(
+                    query = searchQuery,
+                    onQueryChange = { searchQuery = it },
+                    onSearch = { 
+                        isSearchActive = false
+                        addToHistory(it)
+                    },
+                    expanded = isSearchActive,
+                    onExpandedChange = { isSearchActive = it },
+                    placeholder = { Text("Search messages...") },
+                    leadingIcon = { 
+                        if (isSearchActive) {
+                            IconButton(onClick = { isSearchActive = false }) {
+                                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                            }
+                        } else {
+                            Icon(Icons.Default.Search, contentDescription = "Search")
+                        }
+                    },
+                    trailingIcon = {
+                        if (searchQuery.isNotEmpty()) {
+                            IconButton(onClick = { searchQuery = "" }) {
+                                Icon(Icons.Default.Clear, contentDescription = "Clear search")
+                            }
+                        }
+                    }
+                )
             },
-            active = isSearchActive,
-            onActiveChange = { isSearchActive = it },
+            expanded = isSearchActive,
+            onExpandedChange = { isSearchActive = it },
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = if (isSearchActive) 0.dp else 16.dp),
-            placeholder = { Text("Search messages...") },
-            leadingIcon = { 
-                if (isSearchActive) {
-                    IconButton(onClick = { isSearchActive = false }) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
-                    }
-                } else {
-                    Icon(Icons.Default.Search, contentDescription = "Search")
-                }
-            },
-            trailingIcon = {
-                if (searchQuery.isNotEmpty()) {
-                    IconButton(onClick = { searchQuery = "" }) {
-                        Icon(Icons.Default.Clear, contentDescription = "Clear search")
-                    }
-                }
-            },
             colors = SearchBarDefaults.colors(
                 containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
             )
@@ -158,7 +166,7 @@ fun QueueScreen(modifier: Modifier = Modifier) {
                                 Text(sms.body, maxLines = 1, overflow = TextOverflow.Ellipsis) 
                             },
                             leadingContent = {
-                                Icon(Icons.Outlined.Message, contentDescription = null)
+                                Icon(Icons.AutoMirrored.Outlined.Message, contentDescription = null)
                             },
                             modifier = Modifier.clickable {
                                 isSearchActive = false
@@ -403,26 +411,22 @@ private fun SmsCard(sms: SmsEntity, modifier: Modifier = Modifier) {
 
 @Composable
 private fun StatusChip(status: String) {
-    val (icon, containerColor, contentColor) = when (status) {
-        "DELIVERED" -> Triple(
+    val (icon, containerColor) = when (status) {
+        "DELIVERED" -> Pair(
             Icons.Outlined.CheckCircle,
-            MaterialTheme.colorScheme.primary,
-            MaterialTheme.colorScheme.onPrimary
+            MaterialTheme.colorScheme.primary
         )
-        "FAILED", "LOOP_DETECTED" -> Triple(
+        "FAILED", "LOOP_DETECTED" -> Pair(
             Icons.Outlined.Error,
-            MaterialTheme.colorScheme.error,
-            MaterialTheme.colorScheme.onError
+            MaterialTheme.colorScheme.error
         )
-        "HELD" -> Triple(
+        "HELD" -> Pair(
             Icons.Outlined.Pause,
-            MaterialTheme.colorScheme.secondary,
-            MaterialTheme.colorScheme.onSecondary
+            MaterialTheme.colorScheme.secondary
         )
-        else -> Triple(
+        else -> Pair(
             Icons.Outlined.Schedule,
-            MaterialTheme.colorScheme.tertiary,
-            MaterialTheme.colorScheme.onTertiary
+            MaterialTheme.colorScheme.tertiary
         )
     }
     

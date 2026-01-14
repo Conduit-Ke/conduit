@@ -75,7 +75,7 @@ class DeviceHealthMonitor(private val context: Context) {
                     carrierName = info.carrierName?.toString() ?: "Unknown",
                     mcc = info.mccString ?: "",
                     mnc = info.mncString ?: "",
-                    signalStrength = getSignalStrength(info.subscriptionId),
+                    signalStrength = getSignalStrength(),
                     networkType = getNetworkTypeName(telephony.dataNetworkType)
                 )
             } ?: emptyList()
@@ -133,7 +133,7 @@ class DeviceHealthMonitor(private val context: Context) {
         }
     }
 
-    private fun getSignalStrength(subscriptionId: Int): Int {
+    private fun getSignalStrength(): Int {
         // Signal strength requires API 28+ for proper access
         return -1 // Placeholder, actual implementation requires SignalStrength listener
     }

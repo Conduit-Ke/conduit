@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -40,7 +41,9 @@ class MainActivity : AppCompatActivity() {
         
         supportActionBar?.hide()
         
+        @Suppress("DEPRECATION")
         window.statusBarColor = android.graphics.Color.TRANSPARENT
+        @Suppress("DEPRECATION")
         window.navigationBarColor = android.graphics.Color.TRANSPARENT
         
         setContent {
@@ -176,7 +179,7 @@ fun MainApp(onLogout: () -> Unit) {
                         },
                         icon = { 
                             Icon(
-                                if (selectedTab == 1) Icons.Filled.List else Icons.Filled.List,
+                                if (selectedTab == 1) Icons.AutoMirrored.Filled.List else Icons.AutoMirrored.Filled.List,
                                 "Queue"
                             ) 
                         },
@@ -225,7 +228,7 @@ fun MainApp(onLogout: () -> Unit) {
             }
         ) { tab ->
             when (tab) {
-                0 -> HomeScreen(Modifier.padding(padding), snackbarHostState)
+                0 -> HomeScreen(Modifier.padding(padding))
                 1 -> QueueScreen(Modifier.padding(padding))
                 2 -> SettingsScreen(Modifier.padding(padding), onLogout)
             }

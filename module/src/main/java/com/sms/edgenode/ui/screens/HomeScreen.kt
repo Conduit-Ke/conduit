@@ -17,6 +17,7 @@ import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.Done
 import androidx.compose.material.icons.outlined.List
 import androidx.compose.material.icons.outlined.Warning
+import androidx.compose.material.icons.automirrored.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
@@ -34,7 +35,7 @@ import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeScreen(modifier: Modifier = Modifier, snackbarHostState: SnackbarHostState) {
+fun HomeScreen(modifier: Modifier = Modifier) {
     val context = LocalContext.current
     val app = context.applicationContext as EdgeNodeApp
     val scope = rememberCoroutineScope()
@@ -150,8 +151,6 @@ fun HomeScreen(modifier: Modifier = Modifier, snackbarHostState: SnackbarHostSta
             ) {
                 StatusCard(
                     title = "Routing Service",
-                    status = if (isServiceRunning) "Active" else "Inactive",
-                    icon = if (isServiceRunning) Icons.Outlined.CheckCircle else Icons.Outlined.Warning,
                     isHealthy = isServiceRunning
                 )
 
@@ -169,7 +168,7 @@ fun HomeScreen(modifier: Modifier = Modifier, snackbarHostState: SnackbarHostSta
                     MetricCard(
                         title = "In Queue",
                         value = queueSize.toString(),
-                        icon = Icons.Outlined.List,
+                        icon = Icons.AutoMirrored.Outlined.List,
                         modifier = Modifier.weight(1f)
                     )
                     MetricCard(
@@ -188,7 +187,7 @@ fun HomeScreen(modifier: Modifier = Modifier, snackbarHostState: SnackbarHostSta
 }
 
 @Composable
-private fun StatusCard(title: String, status: String, icon: ImageVector, isHealthy: Boolean) {
+private fun StatusCard(title: String, isHealthy: Boolean) {
     ElevatedCard(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.elevatedCardColors(
@@ -274,6 +273,7 @@ private fun MetricCard(title: String, value: String, icon: ImageVector, modifier
 
 private fun checkServiceRunning(context: Context): Boolean {
     val manager = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+    @Suppress("DEPRECATION")
     return manager.getRunningServices(Int.MAX_VALUE).any {
         it.service.className == RoutingService::class.java.name
     }

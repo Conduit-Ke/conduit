@@ -51,7 +51,7 @@ class AuditLogManager(private val auditLogDao: AuditLogDao) {
     /**
      * Get a digest signature of recent logs for server anchoring.
      */
-    suspend fun getDigestSignature(count: Int = 100): String {
+    suspend fun getDigestSignature(): String {
         val lastLog = auditLogDao.getLastLog()
         return lastLog?.currentHash ?: "EMPTY_CHAIN"
     }

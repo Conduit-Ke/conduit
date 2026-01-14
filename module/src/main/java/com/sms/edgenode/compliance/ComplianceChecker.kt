@@ -91,16 +91,14 @@ class ComplianceChecker(private val context: Context) {
     /**
      * Verify IMEI + SIM binding if enabled.
      */
-    fun verifyBinding(simSlot: Int): Boolean {
+    fun verifyBinding(): Boolean {
         val prefs = context.getSharedPreferences("security_prefs", Context.MODE_PRIVATE)
         
         if (!prefs.getBoolean("binding_enabled", false)) {
             return true // Binding not required
         }
 
-        // Get stored binding
         val storedImei = prefs.getString("bound_imei", null)
-        val storedSimId = prefs.getString("bound_sim_$simSlot", null)
 
         if (storedImei == null) {
             return true // No binding set

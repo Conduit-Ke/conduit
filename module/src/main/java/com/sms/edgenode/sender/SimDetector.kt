@@ -40,7 +40,6 @@ object SimDetector {
         }
 
         return try {
-            val subscriptionManager = context.getSystemService(Context.TELEPHONY_SUBSCRIPTION_SERVICE) as? SubscriptionManager
             val defaultSmsSubId = SubscriptionManager.getDefaultSmsSubscriptionId()
             getSimSlotForSubscription(context, defaultSmsSubId)
         } catch (e: Exception) {

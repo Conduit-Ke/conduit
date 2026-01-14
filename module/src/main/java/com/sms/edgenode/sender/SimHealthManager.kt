@@ -66,7 +66,7 @@ class SimHealthManager(private val context: Context) {
         }
     }
 
-    suspend fun recordFailure(simSlot: Int, reason: String) = mutex.withLock {
+    suspend fun recordFailure(simSlot: Int) = mutex.withLock {
         val state = simHealth.getOrPut(simSlot) { SimHealthState() }
         val now = System.currentTimeMillis()
         
@@ -99,7 +99,6 @@ class SimHealthManager(private val context: Context) {
     }
 
     suspend fun getBestSim(preferredSlot: Int): Int = mutex.withLock {
-        val now = System.currentTimeMillis()
         
         // If preferred SIM is healthy, use it
         val preferredState = simHealth[preferredSlot]

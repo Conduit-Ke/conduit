@@ -100,7 +100,6 @@ class TopNotificationState {
         message: String,
         icon: ImageVector? = null,
         iconColor: androidx.compose.ui.graphics.Color? = null,
-        durationMillis: Long = 3000L,
         actionLabel: String? = null,
         onAction: () -> Unit = {}
     ) {
@@ -126,7 +125,6 @@ data class NotificationData(
 @Composable
 fun rememberTopNotificationState(): TopNotificationState {
     val state = remember { TopNotificationState() }
-    val scope = rememberCoroutineScope()
     
     LaunchedEffect(state.isVisible) {
         if (state.isVisible) {
