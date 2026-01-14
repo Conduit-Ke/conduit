@@ -53,9 +53,7 @@ jobs:
             module/build/outputs/apk/release/conduIT.apk
             module/build/outputs/apk/release/conduIT.apk.sha256
           body_path: CHANGELOG.md
-          draft: false
+          draft: true
           prerelease: false
           make_latest: true
-          fail_on_unmatched_files: false
-          generate_release_notes: false
           overwrite_files: true
