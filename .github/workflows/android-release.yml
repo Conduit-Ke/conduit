@@ -56,3 +56,6 @@ jobs:
           draft: false
           prerelease: false
           make_latest: true
+          fail_on_unassigned_tag: false
+          generate_release_notes: false
+          overwrite: true
