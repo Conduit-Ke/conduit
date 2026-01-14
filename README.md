@@ -182,6 +182,7 @@ Add these in your **Private Repo** under `Settings` → `Secrets and variables` 
 | `KEYSTORE_PASSWORD` | Password for your release keystore file (`.jks`). | You defined this when running `keytool` to generate the keystore. |
 | `KEY_PASSWORD` | Password for the key alias inside the keystore. | Usually same as above, defined during `keytool` generation. |
 | `PUBLIC_REPO_TOKEN` | GitHub Personal Access Token (PAT) to publish to the public repo. | GitHub → Settings → Developer settings → PATs (Classic) → New Token → Select `repo` scope. |
+| `KEYSTORE_BASE64` | The actual keystore file, encoded in Base64. | Run `base64 -w 0 keystore.jks` in your terminal and copy the entire output. |
 
 ### Prerequisites
 - Android Studio Hedgehog+ | API 26+ (Android 8.0+)
