@@ -1,0 +1,52 @@
+name: Android Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    name: Build and Release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: 'gradle'
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Build Release APK
+        run: ./gradlew :module:assembleRelease
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+
+      - name: Generate SHA256 Checksum
+        run: |
+          cd module/build/outputs/apk/release
+          sha256sum module-release.apk > module-release.apk.sha256
+          echo "CHECKSUM=$(cat module-release.apk.sha256 | awk '{print $1}')" >> $GITHUB_ENV
+
+      - name: Publish to Public Repository
+        id: create_release
+        uses: softprops/action-gh-release@v2
+        with:
+          # REPLACE with your public repository name (e.g., my-org/sms-gateway-public)
+          repository: Conduit-Ke/conduit-releases
+          token: ${{ secrets.PUBLIC_REPO_TOKEN }}
+          files: |
+            module/build/outputs/apk/release/module-release.apk
+            module/build/outputs/apk/release/module-release.apk.sha256
+          body_path: CHANGELOG.md
+          draft: false
+          prerelease: false

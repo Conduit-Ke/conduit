@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "852983742363",
+    "project_id": "conduit-sms-gateway-v1",
+    "storage_bucket": "conduit-sms-gateway-v1.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:852983742363:android:3d89a5fc09aa0dd9fe6b3e",
+        "android_client_info": {
+          "package_name": "com.example.mrbill"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAa13d_da2jP68lenOC9UXpHhfozi9EiZE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
