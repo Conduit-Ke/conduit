@@ -22,8 +22,12 @@ object ApiConfig {
         
         const val DEVICE_REGISTER = "/devices/register"
         const val DEVICE_STATUS = "/devices/{identifier}/status"
+        const val DEVICE_HEARTBEAT = "/devices/{identifier}/heartbeat"
+        const val DEVICE_TELEMETRY = "/devices/{identifier}/telemetry"
         
         const val SMS_RECEIVE = "/sms"
+        const val SMS_BATCH = "/sms-batch"
         const val SMS_STATUS = "/sms/status"
+        const val SMS_QUOTA = "/sms/quota"
     }
 }

@@ -6,14 +6,35 @@ import android.os.Build
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 import com.google.firebase.messaging.FirebaseMessaging
+import com.sms.edgenode.observability.DeviceHealthMonitor
 import kotlinx.coroutines.tasks.await
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.encodeToString
 
 /**
  * Device registration and management service.
  */
 class DeviceService(private val context: Context, private val authService: AuthService) {
+
+    @Serializable
+    data class HeartbeatRequest(
+        val fcm_token: String? = null,
+        val battery_percentage: Int? = null,
+        val is_charging: Boolean? = null,
+        val has_connectivity: Boolean? = null,
+        val airplane_mode: Boolean? = null,
+        val sim_statuses: List<DeviceHealthMonitor.SimStatus>? = null,
+        val memory_usage: DeviceHealthMonitor.MemoryInfo? = null,
+        val uptime_ms: Long? = null
+    )
     
+    @Serializable
+    data class HeartbeatResponse(
+        val server_time: Long? = null,
+        val config_version: Int? = null,
+        val quota: SmsApiService.QuotaInfo? = null
+    )
+
     private val prefs: SharedPreferences by lazy {
         val masterKey = MasterKey.Builder(context)
             .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
@@ -141,22 +162,33 @@ class DeviceService(private val context: Context, private val authService: AuthS
     }
 
     /**
-     * Send heartbeat to API.
+     * Send heartbeat to API with health data.
      */
-    suspend fun sendHeartbeat(): Result<Boolean> {
+    suspend fun sendHeartbeat(snapshot: DeviceHealthMonitor.HealthSnapshot? = null): Result<HeartbeatResponse> {
         val deviceToken = getDeviceToken() ?: return Result.failure(Exception("Device not registered"))
         val deviceId = getDeviceIdentifier() ?: return Result.failure(Exception("No device identifier"))
         val fcmToken = try { FirebaseMessaging.getInstance().token.await() } catch (e: Exception) { null }
         
-        var endpoint = ApiConfig.Endpoints.DEVICE_STATUS.replace("{identifier}", deviceId)
-        if (fcmToken != null) {
-            endpoint += "?fcm_token=$fcmToken"
-        }
+        val endpoint = ApiConfig.Endpoints.DEVICE_HEARTBEAT.replace("{identifier}", deviceId)
         
-        val response = HttpClient.get(endpoint, deviceToken)
+        val request = HeartbeatRequest(
+            fcm_token = fcmToken,
+            battery_percentage = snapshot?.battery?.percentage,
+            is_charging = snapshot?.battery?.isCharging,
+            has_connectivity = snapshot?.hasConnectivity,
+            airplane_mode = snapshot?.airplaneModeOn,
+            sim_statuses = snapshot?.simStatuses,
+            memory_usage = snapshot?.memoryUsage,
+            uptime_ms = snapshot?.uptimeMs
+        )
+        
+        val jsonBody = HttpClient.json.encodeToString(request)
+        val response = HttpClient.postJson(endpoint, jsonBody, deviceToken)
         
         return if (response.success) {
-            Result.success(true)
+            HttpClient.parseResponse<SmsApiService.ApiWrapper<HeartbeatResponse>>(response)?.data?.let {
+                Result.success(it)
+            } ?: Result.failure(Exception("Failed to parse heartbeat response"))
         } else {
             Result.failure(Exception("Heartbeat failed: ${response.code}"))
         }
@@ -199,7 +231,7 @@ class DeviceService(private val context: Context, private val authService: AuthS
         val deviceToken = getDeviceToken() ?: return Result.failure(Exception("Device not registered"))
         val deviceId = getDeviceIdentifier() ?: return Result.failure(Exception("No device identifier"))
 
-        val endpoint = ApiConfig.Endpoints.DEVICE_STATUS.replace("{identifier}", deviceId) + "/fcm-token"
+        val endpoint = "/devices/$deviceId/fcm-token"
         val response = HttpClient.post(
             endpoint,
             mapOf("fcm_token" to fcmToken),
@@ -210,6 +242,50 @@ class DeviceService(private val context: Context, private val authService: AuthS
             Result.success(true)
         } else {
             Result.failure(Exception("FCM token sync failed: ${response.code}"))
+        }
+    }
+
+    /**
+     * Report an autonomous carrier metric (balance, bundles) to the server.
+     */
+    suspend fun reportCarrierMetric(type: String, value: String): Result<Boolean> {
+        val deviceToken = getDeviceToken() ?: return Result.failure(Exception("Device not registered"))
+        val deviceId = getDeviceIdentifier() ?: return Result.failure(Exception("No device identifier"))
+
+        val endpoint = "/devices/$deviceId/metrics"
+        val response = HttpClient.post(
+            endpoint,
+            mapOf("type" to type, "value" to value, "timestamp" to System.currentTimeMillis().toString()),
+            deviceToken
+        )
+
+        return if (response.success) {
+            android.util.Log.d("DeviceService", "Metric reported: $type = $value")
+            Result.success(true)
+        } else {
+            Result.failure(Exception("Metric reporting failed: ${response.code}"))
+        }
+    }
+
+    /**
+     * Request an autonomous airtime refill from the server.
+     */
+    suspend fun requestRefill(amount: Double): Result<Boolean> {
+        val deviceToken = getDeviceToken() ?: return Result.failure(Exception("Device not registered"))
+        val deviceId = getDeviceIdentifier() ?: return Result.failure(Exception("No device identifier"))
+
+        val endpoint = "/devices/$deviceId/refill-request"
+        val response = HttpClient.post(
+            endpoint,
+            mapOf("amount" to amount.toString()),
+            deviceToken
+        )
+
+        return if (response.success) {
+            android.util.Log.i("DeviceService", "Refill request ($amount) sent for node $deviceId")
+            Result.success(true)
+        } else {
+            Result.failure(Exception("Refill request failed: ${response.code}"))
         }
     }
 }

@@ -12,4 +12,5 @@ object SmsStatus {
     const val DELIVERED_UNKNOWN = "DELIVERED_UNKNOWN" // TTL expired post-sent
     const val EXPIRED_BACKPRESSURE = "EXPIRED_BACKPRESSURE"
     const val HELD = "HELD" // Compliance hold
+    const val SYSTEM = "SYSTEM" // Carrier system messages (Balance, bundles, etc)
 }

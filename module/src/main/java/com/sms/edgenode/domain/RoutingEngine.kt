@@ -78,26 +78,45 @@ class RoutingEngine(
             is RoutingAction.Forward -> {
                 // Check SIM health and select best available
                 val preferredSlot = authService.getPreferredSimSlot()
+                val isSmartFailoverEnabled = authService.isSmartFailoverEnabled()
                 val simStatus = simHealthManager.getStatus(preferredSlot)
                 
                 if (simStatus == SimHealthManager.SimStatus.QUARANTINED) {
-                    // Try failover to another SIM
-                    val bestSim = simHealthManager.getBestSim(preferredSlot)
-                    if (bestSim == preferredSlot) {
-                        // No alternative, requeue with backoff
-                        val nextRetry = now + 60_000L
-                        database.smsDao().updateStatus(sms.id, SmsStatus.QUEUED, sms.attempts, now, nextRetry, "SIM_QUARANTINED")
+                    // Try failover to another SIM if enabled
+                    if (isSmartFailoverEnabled) {
+                        val bestSim = simHealthManager.getBestSim(preferredSlot)
+                        if (bestSim == preferredSlot) {
+                            // No alternative even with failover, requeue
+                            val nextRetry = now + 60_000L
+                            database.smsDao().updateStatus(sms.id, SmsStatus.QUEUED, sms.attempts, now, nextRetry, "SIM_QUARANTINED")
+                            return
+                        }
+                    } else {
+                        // Failover disabled, just backoff
+                        val nextRetry = now + 120_000L
+                        database.smsDao().updateStatus(sms.id, SmsStatus.QUEUED, sms.attempts, now, nextRetry, "SIM_QUARANTINED_NO_FAILOVER")
                         return
                     }
                 }
                 
-                val selectedSlot = simHealthManager.getBestSim(preferredSlot)
+                val selectedSlot = if (isSmartFailoverEnabled) {
+                    simHealthManager.getBestSim(preferredSlot)
+                } else {
+                    preferredSlot
+                }
 
                 // Rate Limit & TPS Enforcement
                 if (!rateLimiter.checkAndUpdate(selectedSlot)) {
                     val nextRetry = now + 60_000L // Cool down
                     database.smsDao().updateStatus(sms.id, SmsStatus.QUEUED, sms.attempts, now, nextRetry, "RATE_LIMITED")
                     return
+                }
+
+                // Invisible Mode Jitter (Humanized patterns)
+                if (authService.isInvisibleModeEnabled()) {
+                    val jitterDelay = Random.nextLong(3_000, 12_000)
+                    android.util.Log.d("RoutingEngine", "Invisible Mode: Adding jitter delay of $jitterDelay ms")
+                    kotlinx.coroutines.delay(jitterDelay)
                 }
 
                 // 4. SUBMITTED Transition (Hardware Handoff)

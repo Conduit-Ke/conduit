@@ -34,7 +34,17 @@ class AuthService(private val context: Context) {
         private const val KEY_USER_EMAIL = "user_email"
         private const val KEY_ORG_ID = "organization_id"
         private const val KEY_PREFERRED_SIM = "preferred_sim"
+        private const val KEY_SMART_FAILOVER = "smart_failover"
         private const val KEY_CONTROL_SECRET = "control_security_key"
+        private const val KEY_INVISIBLE_MODE = "invisible_mode"
+        private const val KEY_USSD_AUTO_CHECK = "ussd_auto_check"
+        private const val KEY_USSD_AIRTIME_CODE = "ussd_airtime_code"
+        private const val KEY_USSD_SMS_CODE = "ussd_sms_code"
+        private const val KEY_USSD_TOPUP_CODE = "ussd_topup_code"
+        private const val KEY_USSD_BUNDLE_PURCHASE_CODE = "ussd_bundle_purchase_code"
+        private const val KEY_USSD_AUTO_BUNDLE = "ussd_auto_bundle"
+        private const val KEY_REFILL_THRESHOLD = "refill_threshold"
+        private const val KEY_LAST_REFILL_TIME = "last_refill_time"
     }
     
     @Serializable
@@ -235,6 +245,12 @@ class AuthService(private val context: Context) {
         prefs.edit().putInt(KEY_PREFERRED_SIM, slot).apply()
     }
 
+    fun isSmartFailoverEnabled(): Boolean = prefs.getBoolean(KEY_SMART_FAILOVER, true)
+
+    fun setSmartFailoverEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_SMART_FAILOVER, enabled).apply()
+    }
+
     fun getControlSecurityKey(): String? {
         // Return hardcoded placeholder for now, but allow setting it via provisioning
         return prefs.getString(KEY_CONTROL_SECRET, env_placeholder_key())
@@ -242,6 +258,60 @@ class AuthService(private val context: Context) {
 
     fun setControlSecurityKey(key: String) {
         prefs.edit().putString(KEY_CONTROL_SECRET, key).apply()
+    }
+
+    fun isInvisibleModeEnabled(): Boolean = prefs.getBoolean(KEY_INVISIBLE_MODE, false)
+
+    fun setInvisibleModeEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_INVISIBLE_MODE, enabled).apply()
+    }
+
+    fun isUssdAutoCheckEnabled(): Boolean = prefs.getBoolean(KEY_USSD_AUTO_CHECK, false)
+
+    fun setUssdAutoCheckEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_USSD_AUTO_CHECK, enabled).apply()
+    }
+
+    fun getUssdAirtimeCode(): String = prefs.getString(KEY_USSD_AIRTIME_CODE, "*144#") ?: "*144#"
+
+    fun setUssdAirtimeCode(code: String) {
+        prefs.edit().putString(KEY_USSD_AIRTIME_CODE, code).apply()
+    }
+
+    fun getUssdSmsCode(): String = prefs.getString(KEY_USSD_SMS_CODE, "*544*44#") ?: "*544*44#"
+
+    fun setUssdSmsCode(code: String) {
+        prefs.edit().putString(KEY_USSD_SMS_CODE, code).apply()
+    }
+
+    fun getUssdTopupCode(): String = prefs.getString(KEY_USSD_TOPUP_CODE, "*141*CARD#") ?: "*141*CARD#"
+
+    fun setUssdTopupCode(code: String) {
+        prefs.edit().putString(KEY_USSD_TOPUP_CODE, code).apply()
+    }
+
+    fun getUssdBundlePurchaseCode(): String = prefs.getString(KEY_USSD_BUNDLE_PURCHASE_CODE, "*544*2*1*1#") ?: "*544*2*1*1#"
+
+    fun setUssdBundlePurchaseCode(code: String) {
+        prefs.edit().putString(KEY_USSD_BUNDLE_PURCHASE_CODE, code).apply()
+    }
+
+    fun isAutoBundleEnabled(): Boolean = prefs.getBoolean(KEY_USSD_AUTO_BUNDLE, false)
+
+    fun setAutoBundleEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_USSD_AUTO_BUNDLE, enabled).apply()
+    }
+
+    fun getRefillThreshold(): Double = prefs.getString(KEY_REFILL_THRESHOLD, "50.0")?.toDoubleOrNull() ?: 50.0
+
+    fun setRefillThreshold(threshold: Double) {
+        prefs.edit().putString(KEY_REFILL_THRESHOLD, threshold.toString()).apply()
+    }
+
+    fun getLastRefillRequestTime(): Long = prefs.getLong(KEY_LAST_REFILL_TIME, 0L)
+
+    fun setLastRefillRequestTime(timestamp: Long) {
+        prefs.edit().putLong(KEY_LAST_REFILL_TIME, timestamp).apply()
     }
 
     private fun env_placeholder_key(): String? {

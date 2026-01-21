@@ -53,6 +53,15 @@ fun EdgeNodeTheme(
         else -> LightColorScheme
     }
 
+    val view = androidx.compose.ui.platform.LocalView.current
+    if (!view.isInEditMode) {
+        SideEffect {
+            val window = (view.context as android.app.Activity).window
+            // We keep it transparent as set in MainActivity, but ensure icons are visible
+            androidx.core.view.WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !darkTheme
+        }
+    }
+
     MaterialTheme(
         colorScheme = colorScheme,
         typography = Typography(),

@@ -3,6 +3,7 @@ package com.sms.edgenode.observability
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import kotlinx.serialization.Serializable
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.os.BatteryManager
@@ -157,6 +158,7 @@ class DeviceHealthMonitor(private val context: Context) {
     }
 
     // Data classes
+    @Serializable
     data class SimStatus(
         val slot: Int,
         val carrierId: Int,
@@ -167,17 +169,20 @@ class DeviceHealthMonitor(private val context: Context) {
         val networkType: String
     )
 
+    @Serializable
     data class BatteryStatus(
         val percentage: Int,
         val isCharging: Boolean
     )
 
+    @Serializable
     data class MemoryInfo(
         val usedMb: Int,
         val totalMb: Int,
         val maxMb: Int
     )
 
+    @Serializable
     data class HealthSnapshot(
         val timestamp: Long,
         val hasConnectivity: Boolean,

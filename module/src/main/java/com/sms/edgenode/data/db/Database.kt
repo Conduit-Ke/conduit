@@ -106,6 +106,9 @@ interface SmsDao {
     @Query("SELECT COUNT(*) FROM sms_queue WHERE status = 'DELIVERED'")
     suspend fun getDeliveredCount(): Int
 
+    @Query("SELECT COUNT(*) FROM sms_queue WHERE status IN ('FAILED', 'EXPIRED', 'DROP', 'LOOP_DETECTED')")
+    suspend fun getFailedCount(): Int
+
     @Query("UPDATE sms_queue SET status = 'QUEUED' WHERE status = 'HELD' AND sender = 'FCM_INJECTION'")
     suspend fun requeueHeldOutbound()
 
@@ -129,6 +132,9 @@ interface SmsDao {
 
     @Query("DELETE FROM sms_queue WHERE receivedAt < :before")
     suspend fun deleteOldMessages(before: Long)
+
+    @Query("DELETE FROM sms_queue WHERE status = 'DELIVERED'")
+    suspend fun deleteDelivered()
 }
 
 @Dao

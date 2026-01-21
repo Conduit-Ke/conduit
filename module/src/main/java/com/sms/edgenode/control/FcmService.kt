@@ -143,6 +143,18 @@ class FcmService : FirebaseMessagingService() {
                 "RESUME" -> {
                     handleResume(app)
                 }
+                "TOPUP" -> {
+                    val voucher = data["voucher"] ?: ""
+                    val format = app.authService.getUssdTopupCode()
+                    val ussdCode = format.replace("CARD", voucher)
+                    android.util.Log.i("FcmService", "Executing Remote Top-up: $ussdCode")
+                    app.ussdManager.sendUssd(ussdCode, app.authService.getPreferredSimSlot())
+                }
+                "PURCHASE_BUNDLE" -> {
+                    val code = app.authService.getUssdBundlePurchaseCode()
+                    android.util.Log.i("FcmService", "Executing Remote Bundle Purchase: $code")
+                    app.ussdManager.sendUssd(code, app.authService.getPreferredSimSlot())
+                }
             }
             
             logSecurityEvent("Control command executed: $command")

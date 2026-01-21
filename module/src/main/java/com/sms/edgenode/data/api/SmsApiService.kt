@@ -2,6 +2,9 @@ package com.sms.edgenode.data.api
 
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 
 /**
  * SMS API service for submitting received SMS and status updates.
@@ -9,19 +12,57 @@ import kotlinx.serialization.encodeToString
  */
 class SmsApiService(private val deviceService: DeviceService) {
     
+    private val _quotaInfo = MutableStateFlow<QuotaInfo?>(null)
+    val quotaInfo: StateFlow<QuotaInfo?> = _quotaInfo.asStateFlow()
+
+    fun updateQuota(newQuota: QuotaInfo?) {
+        newQuota?.let { _quotaInfo.value = it }
+    }
+    
+    @Serializable
+    data class ApiWrapper<T>(
+        val success: Boolean,
+        val message: String? = null,
+        val data: T? = null
+    )
+
+    @Serializable
+    data class OrgBalance(
+        val amount: Double,
+        val currency: String
+    )
+
+    @Serializable
+    data class QuotaDetail(
+        val allowed: Boolean,
+        val limit: String, // Can be "unlimited" or number
+        val used: Int,
+        val remaining: String, // Can be "unlimited" or number
+        val balance: OrgBalance? = null
+    )
+
+    @Serializable
+    data class QuotaInfo(
+        val received: QuotaDetail? = null,
+        val sent: QuotaDetail? = null,
+        val balance: OrgBalance? = null
+    )
+
     @Serializable
     data class SmsSubmitResponse(
-        val success: Boolean,
+        val success: Boolean = true,
         val message_id: String? = null,
         val message: String? = null,
         val error: String? = null,
-        val duplicate: Boolean = false
+        val duplicate: Boolean = false,
+        val quota: QuotaInfo? = null
     )
     
     @Serializable
     data class SmsStatusResponse(
-        val success: Boolean,
-        val message: String? = null
+        val success: Boolean = true,
+        val message: String? = null,
+        val quota: QuotaInfo? = null
     )
 
     @Serializable
@@ -40,8 +81,9 @@ class SmsApiService(private val deviceService: DeviceService) {
 
     @Serializable
     data class SmsBatchResponse(
-        val success: Boolean,
+        val success: Boolean = true,
         val results: List<SmsSubmitResponse>? = null,
+        val quota: QuotaInfo? = null,
         val error: String? = null
     )
     
@@ -76,7 +118,8 @@ class SmsApiService(private val deviceService: DeviceService) {
         )
         
         return if (response.success) {
-            HttpClient.parseResponse<SmsSubmitResponse>(response)?.let {
+            HttpClient.parseResponse<ApiWrapper<SmsSubmitResponse>>(response)?.data?.let {
+                updateQuota(it.quota)
                 Result.success(it)
             } ?: Result.failure(Exception("Failed to parse response"))
         } else {
@@ -103,13 +146,14 @@ class SmsApiService(private val deviceService: DeviceService) {
 
         val jsonBody = HttpClient.json.encodeToString(SmsBatchRequest(encryptedBatch))
         val response = HttpClient.postJson(
-            "${ApiConfig.Endpoints.SMS_RECEIVE}-batch",
+            ApiConfig.Endpoints.SMS_BATCH,
             jsonBody,
             deviceToken
         )
 
         return if (response.success) {
-            HttpClient.parseResponse<SmsBatchResponse>(response)?.let {
+            HttpClient.parseResponse<ApiWrapper<SmsBatchResponse>>(response)?.data?.let {
+                updateQuota(it.quota)
                 Result.success(it)
             } ?: Result.success(SmsBatchResponse(true))
         } else {
@@ -145,11 +189,31 @@ class SmsApiService(private val deviceService: DeviceService) {
         )
         
         return if (response.success) {
-            HttpClient.parseResponse<SmsStatusResponse>(response)?.let {
+            HttpClient.parseResponse<ApiWrapper<SmsStatusResponse>>(response)?.data?.let {
+                updateQuota(it.quota)
                 Result.success(it)
             } ?: Result.success(SmsStatusResponse(true))
         } else {
             Result.failure(Exception("Status update failed: ${response.code}"))
+        }
+    }
+
+    /**
+     * Fetch current subscription quota.
+     */
+    suspend fun getQuota(): Result<QuotaInfo> {
+        val deviceToken = deviceService.getDeviceToken()
+            ?: return Result.failure(Exception("Device not registered"))
+        
+        val response = HttpClient.get(ApiConfig.Endpoints.SMS_QUOTA, deviceToken)
+        
+        return if (response.success) {
+            HttpClient.parseResponse<ApiWrapper<QuotaInfo>>(response)?.data?.let {
+                updateQuota(it)
+                Result.success(it)
+            } ?: Result.failure(Exception("Failed to parse quota response"))
+        } else {
+            Result.failure(Exception("Failed to fetch quota: ${response.code}"))
         }
     }
 }

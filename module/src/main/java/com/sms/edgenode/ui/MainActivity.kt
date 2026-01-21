@@ -148,69 +148,75 @@ fun MainApp(onLogout: () -> Unit) {
             ) {
                 NavigationBar(
                     containerColor = MaterialTheme.colorScheme.surface,
-                    modifier = Modifier.height(64.dp)
+                    modifier = Modifier.height(56.dp),
+                    tonalElevation = 0.dp
                 ) {
                     NavigationBarItem(
                         selected = selectedTab == 0,
+                        alwaysShowLabel = false,
                         onClick = { 
                             previousTab = selectedTab
                             selectedTab = 0 
                         },
-                        icon = { 
-                            Icon(
-                                if (selectedTab == 0) Icons.Filled.Home else Icons.Filled.Home,
-                                "Home"
-                            ) 
-                        },
-                        label = { Text("Home") },
+                        icon = { Icon(Icons.Filled.Home, "Home") },
+                        label = { Text("Home", style = MaterialTheme.typography.labelSmall) },
                         colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                            selectedTextColor = MaterialTheme.colorScheme.onSurface,
-                            indicatorColor = MaterialTheme.colorScheme.primaryContainer,
-                            unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                            unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
+                            selectedIconColor = MaterialTheme.colorScheme.primary,
+                            selectedTextColor = MaterialTheme.colorScheme.primary,
+                            indicatorColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
+                            unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                            unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
                         )
                     )
                     NavigationBarItem(
                         selected = selectedTab == 1,
+                        alwaysShowLabel = false,
                         onClick = { 
                             previousTab = selectedTab
                             selectedTab = 1 
                         },
-                        icon = { 
-                            Icon(
-                                if (selectedTab == 1) Icons.AutoMirrored.Filled.List else Icons.AutoMirrored.Filled.List,
-                                "Queue"
-                            ) 
-                        },
-                        label = { Text("Queue") },
+                        icon = { Icon(Icons.AutoMirrored.Filled.List, "Queue") },
+                        label = { Text("Queue", style = MaterialTheme.typography.labelSmall) },
                         colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                            selectedTextColor = MaterialTheme.colorScheme.onSurface,
-                            indicatorColor = MaterialTheme.colorScheme.primaryContainer,
-                            unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                            unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
+                            selectedIconColor = MaterialTheme.colorScheme.primary,
+                            selectedTextColor = MaterialTheme.colorScheme.primary,
+                            indicatorColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
+                            unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                            unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
                         )
                     )
                     NavigationBarItem(
                         selected = selectedTab == 2,
+                        alwaysShowLabel = false,
                         onClick = { 
                             previousTab = selectedTab
                             selectedTab = 2 
                         },
-                        icon = { 
-                            Icon(
-                                if (selectedTab == 2) Icons.Filled.Settings else Icons.Filled.Settings,
-                                "Settings"
-                            ) 
-                        },
-                        label = { Text("Settings") },
+                        icon = { Icon(Icons.Default.History, "Logs") },
+                        label = { Text("Logs", style = MaterialTheme.typography.labelSmall) },
                         colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                            selectedTextColor = MaterialTheme.colorScheme.onSurface,
-                            indicatorColor = MaterialTheme.colorScheme.primaryContainer,
-                            unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                            unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
+                            selectedIconColor = MaterialTheme.colorScheme.primary,
+                            selectedTextColor = MaterialTheme.colorScheme.primary,
+                            indicatorColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
+                            unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                            unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                        )
+                    )
+                    NavigationBarItem(
+                        selected = selectedTab == 3,
+                        alwaysShowLabel = false,
+                        onClick = { 
+                            previousTab = selectedTab
+                            selectedTab = 3 
+                        },
+                        icon = { Icon(Icons.Filled.Settings, "Settings") },
+                        label = { Text("Settings", style = MaterialTheme.typography.labelSmall) },
+                        colors = NavigationBarItemDefaults.colors(
+                            selectedIconColor = MaterialTheme.colorScheme.primary,
+                            selectedTextColor = MaterialTheme.colorScheme.primary,
+                            indicatorColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
+                            unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                            unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
                         )
                     )
                 }
@@ -225,13 +231,22 @@ fun MainApp(onLogout: () -> Unit) {
                 } else {
                     slideInHorizontally { -it } togetherWith slideOutHorizontally { it }
                 }
-            }
+            },
+            label = "tab_transition"
         ) { tab ->
             when (tab) {
-                0 -> HomeScreen(Modifier.padding(padding))
+                0 -> HomeScreen(
+                    modifier = Modifier.padding(padding),
+                    onNavigateToLogs = { selectedTab = 2 }
+                )
                 1 -> QueueScreen(Modifier.padding(padding))
-                2 -> SettingsScreen(Modifier.padding(padding), onLogout)
+                2 -> LogsScreen(
+                    modifier = Modifier.padding(padding),
+                    onBack = { selectedTab = 0 }
+                )
+                3 -> SettingsScreen(Modifier.padding(padding), onLogout)
             }
         }
     }
 }
+

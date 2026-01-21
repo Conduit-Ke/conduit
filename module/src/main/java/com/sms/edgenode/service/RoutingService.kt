@@ -208,7 +208,8 @@ class RoutingService : Service() {
             android.Manifest.permission.RECEIVE_SMS,
             android.Manifest.permission.SEND_SMS,
             android.Manifest.permission.READ_SMS,
-            android.Manifest.permission.READ_PHONE_STATE
+            android.Manifest.permission.READ_PHONE_STATE,
+            android.Manifest.permission.CALL_PHONE
         ).apply {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 add(android.Manifest.permission.POST_NOTIFICATIONS)

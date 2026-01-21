@@ -60,7 +60,7 @@ object HttpClient {
         endpoint: String,
         body: Map<String, String>,
         token: String? = null
-    ): Response = request("POST", endpoint, json.encodeToString(body), token)
+    ): Response = request("PUT", endpoint, json.encodeToString(body), token)
 
     /**
      * Generic HTTP request.
