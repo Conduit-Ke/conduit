@@ -52,15 +52,7 @@ class FcmService : FirebaseMessagingService() {
                 "CONTROL_COMMAND" -> handleControlCommand(fullData)
                 "UPDATE_RULES" -> handleRuleUpdate(fullData)
             }
-        } else {
-            // Fallback for legacy/non-secure commands if allowed
-            when (type) {
-                "UPDATE_RULES" -> handleRuleUpdate(data)
-                "CONTROL_COMMAND" -> handleControlCommand(data)
-                "SEND_SMS" -> handleSendSms(data)
-                "ENCRYPTED" -> handleEncryptedPayload(data)
-            }
-        }
+        } 
     }
 
     override fun onNewToken(token: String) {

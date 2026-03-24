@@ -67,6 +67,12 @@ class AuthService(private val context: Context) {
         val error: String? = null
     )
     
+    @Serializable
+    data class ProvisioningResponse(
+        val control_security_key: String? = null,
+        val error: String? = null
+    )
+    
     /**
      * Step 1: Login with email/password. Returns user_id if OTP required.
      */
@@ -149,11 +155,8 @@ class AuthService(private val context: Context) {
                 // Store tokens securely
                 saveTokens(tokenResponse)
                 
-                // Save control security key if provided
-                tokenResponse.control_security_key?.let { key ->
-                    android.util.Log.d("AuthService", "Received control security key via OTP")
-                    setControlSecurityKey(key)
-                }
+                // Fetch provisioning data (security keys) independently
+                fetchProvisioning()
 
                 prefs.edit().putInt(KEY_USER_ID, userId).apply()
                 Result.success(tokenResponse)
@@ -197,6 +200,7 @@ class AuthService(private val context: Context) {
         return if (response.success) {
             HttpClient.parseResponse<TokenResponse>(response)?.let { tokenResponse ->
                 saveTokens(tokenResponse)
+                fetchProvisioning()
                 Result.success(tokenResponse)
             } ?: Result.failure(Exception("Failed to parse token response"))
         } else {
@@ -206,6 +210,26 @@ class AuthService(private val context: Context) {
         }
     }
     
+    /**
+     * Fetch provisioning data (security keys) separately.
+     */
+    suspend fun fetchProvisioning(): Result<ProvisioningResponse> {
+        val token = getAccessToken() ?: return Result.failure(Exception("No access token"))
+        val response = HttpClient.get(ApiConfig.Endpoints.PROVISIONING, token)
+        
+        return if (response.success) {
+            HttpClient.parseResponse<ProvisioningResponse>(response)?.let { provisioning ->
+                provisioning.control_security_key?.let { key ->
+                    android.util.Log.d("AuthService", "Received control security key via Provisioning")
+                    setControlSecurityKey(key)
+                }
+                Result.success(provisioning)
+            } ?: Result.failure(Exception("Failed to parse provisioning response"))
+        } else {
+            Result.failure(Exception("Provisioning failed: ${response.code}"))
+        }
+    }
+
     /**
      * Logout - clear all tokens.
      */

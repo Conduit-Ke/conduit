@@ -19,6 +19,7 @@ object ApiConfig {
         const val REFRESH = "/auth/refresh"
         const val LOGOUT = "/auth/logout"
         const val ME = "/auth/me"
+        const val PROVISIONING = "/auth/provisioning"
         
         const val DEVICE_REGISTER = "/devices/register"
         const val DEVICE_STATUS = "/devices/{identifier}/status"
