@@ -95,7 +95,14 @@ class DeviceService(private val context: Context, private val authService: AuthS
             ?: return Result.failure(Exception("Not authenticated"))
         
         val fiid = getHardwareIdentifier()
-        val fcmToken = try { FirebaseMessaging.getInstance().token.await() } catch (e: Exception) { null }
+        val fcmToken = try { 
+            FirebaseMessaging.getInstance().token.await().also {
+                android.util.Log.i("DeviceService", "Successfully retrieved FCM token during register: $it")
+            }
+        } catch (e: Exception) { 
+            android.util.Log.e("DeviceService", "Failed to retrieve FCM token during register", e)
+            null 
+        }
         
         val params = mutableMapOf(
             "fiid" to fiid,
@@ -141,7 +148,7 @@ class DeviceService(private val context: Context, private val authService: AuthS
         android.util.Log.d("DeviceService", "Verifying device identity: $identifier")
         
         // Correct endpoint: /api/devices/{identifier}/verify
-        val endpoint = "/devices/$identifier/verify"
+        val endpoint = ApiConfig.Endpoints.DEVICE_VERIFY.replace("{identifier}", identifier)
         val response = HttpClient.get(endpoint, token)
         android.util.Log.d("DeviceService", "Verify response code: ${response.code}")
         
@@ -167,7 +174,14 @@ class DeviceService(private val context: Context, private val authService: AuthS
     suspend fun sendHeartbeat(snapshot: DeviceHealthMonitor.HealthSnapshot? = null): Result<HeartbeatResponse> {
         val deviceToken = getDeviceToken() ?: return Result.failure(Exception("Device not registered"))
         val deviceId = getDeviceIdentifier() ?: return Result.failure(Exception("No device identifier"))
-        val fcmToken = try { FirebaseMessaging.getInstance().token.await() } catch (e: Exception) { null }
+        val fcmToken = try { 
+            FirebaseMessaging.getInstance().token.await().also {
+                android.util.Log.i("DeviceService", "Successfully retrieved FCM token during heartbeat")
+            }
+        } catch (e: Exception) { 
+            android.util.Log.e("DeviceService", "Failed to retrieve FCM token during heartbeat", e)
+            null 
+        }
         
         val endpoint = ApiConfig.Endpoints.DEVICE_HEARTBEAT.replace("{identifier}", deviceId)
         
@@ -231,7 +245,7 @@ class DeviceService(private val context: Context, private val authService: AuthS
         val deviceToken = getDeviceToken() ?: return Result.failure(Exception("Device not registered"))
         val deviceId = getDeviceIdentifier() ?: return Result.failure(Exception("No device identifier"))
 
-        val endpoint = "/devices/$deviceId/fcm-token"
+        val endpoint = ApiConfig.Endpoints.DEVICE_FCM_TOKEN.replace("{identifier}", deviceId)
         val response = HttpClient.post(
             endpoint,
             mapOf("fcm_token" to fcmToken),
@@ -252,7 +266,7 @@ class DeviceService(private val context: Context, private val authService: AuthS
         val deviceToken = getDeviceToken() ?: return Result.failure(Exception("Device not registered"))
         val deviceId = getDeviceIdentifier() ?: return Result.failure(Exception("No device identifier"))
 
-        val endpoint = "/devices/$deviceId/metrics"
+        val endpoint = ApiConfig.Endpoints.DEVICE_METRICS.replace("{identifier}", deviceId)
         val response = HttpClient.post(
             endpoint,
             mapOf("type" to type, "value" to value, "timestamp" to System.currentTimeMillis().toString()),
@@ -274,7 +288,7 @@ class DeviceService(private val context: Context, private val authService: AuthS
         val deviceToken = getDeviceToken() ?: return Result.failure(Exception("Device not registered"))
         val deviceId = getDeviceIdentifier() ?: return Result.failure(Exception("No device identifier"))
 
-        val endpoint = "/devices/$deviceId/refill-request"
+        val endpoint = ApiConfig.Endpoints.DEVICE_REFILL.replace("{identifier}", deviceId)
         val response = HttpClient.post(
             endpoint,
             mapOf("amount" to amount.toString()),

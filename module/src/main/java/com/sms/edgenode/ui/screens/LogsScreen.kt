@@ -3,8 +3,8 @@ package com.sms.edgenode.ui.screens
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material.icons.filled.*
@@ -13,13 +13,16 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import com.sms.edgenode.EdgeNodeApp
 import com.sms.edgenode.data.db.AuditLogEntity
+import com.sms.edgenode.ui.theme.DesignTokens
+import com.sms.edgenode.ui.theme.extended
+import com.sms.edgenode.ui.viewmodel.LogsViewModel
+import org.koin.androidx.compose.koinViewModel
+import com.sms.edgenode.ui.components.shimmerEffect
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -27,63 +30,197 @@ import java.util.*
 @Composable
 fun LogsScreen(
     modifier: Modifier = Modifier,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    viewModel: LogsViewModel = koinViewModel()
 ) {
-    val context = LocalContext.current
-    val app = context.applicationContext as EdgeNodeApp
-    val logs by app.database.auditLogDao().observeLogs().collectAsState(initial = emptyList())
+    val logs by viewModel.logs.collectAsState()
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Audit Logs", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                },
-                actions = {
-                    IconButton(onClick = { 
-                        // Optional: Clear logs action 
-                    }) {
-                        Icon(Icons.Default.DeleteSweep, contentDescription = "Clear Logs")
-                    }
-                }
-            )
-        }
-    ) { padding ->
-        Column(
-            modifier = modifier
-                .fillMaxSize()
-                .padding(padding)
-                .background(MaterialTheme.colorScheme.background)
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+    ) {
+        // Simple Top App Bar Look
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            color = MaterialTheme.colorScheme.background,
+            shadowElevation = 0.dp
         ) {
-            if (logs.isEmpty()) {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(DesignTokens.Spacing4),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(DesignTokens.Spacing2)
+                ) {
+                    IconButton(
+                        onClick = onBack,
+                        modifier = Modifier
+                            .size(48.dp)
+                            .clip(CircleShape)
+                    ) {
                         Icon(
-                            Icons.Default.History,
-                            contentDescription = null,
-                            modifier = Modifier.size(48.dp),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back",
+                            tint = MaterialTheme.colorScheme.onSurface
                         )
-                        Spacer(modifier = Modifier.height(16.dp))
+                    }
+                    Column {
                         Text(
-                            "No logs yet",
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            "Audit Logs",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold
+                        )
+                        val count = if (logs is com.sms.edgenode.ui.state.UiState.Success) {
+                            (logs as com.sms.edgenode.ui.state.UiState.Success).data.size
+                        } else 0
+                        Text(
+                            "$count entries",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.primary
                         )
                     }
                 }
-            } else {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    items(logs) { log ->
-                        LogCard(log = log)
+                
+                if (logs is com.sms.edgenode.ui.state.UiState.Success && (logs as com.sms.edgenode.ui.state.UiState.Success).data.isNotEmpty()) {
+                    TextButton(
+                        onClick = { viewModel.clearLogs() },
+                        colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                    ) {
+                        Icon(
+                            Icons.Default.DeleteSweep,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(Modifier.width(6.dp))
+                        Text("Clear")
                     }
+                }
+            }
+        }
+
+        // Unified Card Content Section
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = DesignTokens.Spacing4)
+                .padding(bottom = DesignTokens.Spacing8)
+        ) {
+            when (val state = logs) {
+                is com.sms.edgenode.ui.state.UiState.Loading -> {
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = DesignTokens.CardShape,
+                        color = MaterialTheme.colorScheme.surface,
+                        shadowElevation = 1.dp
+                    ) {
+                        Column {
+                            repeat(8) { index ->
+                                ShimmerLogsList()
+                                if (index < 7) {
+                                    HorizontalDivider(
+                                        modifier = Modifier.padding(horizontal = 48.dp),
+                                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+                is com.sms.edgenode.ui.state.UiState.Empty -> {
+                    com.sms.edgenode.ui.components.EmptyStateView(
+                        icon = Icons.Outlined.History,
+                        title = "No logs recorded",
+                        message = "Activity will appear here"
+                    )
+                }
+                is com.sms.edgenode.ui.state.UiState.Success -> {
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = DesignTokens.CardShape,
+                        color = MaterialTheme.colorScheme.surface,
+                        shadowElevation = 1.dp
+                    ) {
+                        LazyColumn(
+                            modifier = Modifier.fillMaxSize(),
+                            contentPadding = PaddingValues(vertical = DesignTokens.Spacing2)
+                        ) {
+                            itemsIndexed(state.data, key = { _, log -> log.id }) { index, log ->
+                                LogRow(
+                                    log = log,
+                                    modifier = Modifier.animateItem()
+                                )
+                                if (index < state.data.size - 1) {
+                                    HorizontalDivider(
+                                        modifier = Modifier.padding(horizontal = 48.dp),
+                                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+                is com.sms.edgenode.ui.state.UiState.Error -> {}
+            }
+        }
+    }
+}
+
+@Composable
+private fun LogRow(log: AuditLogEntity, modifier: Modifier = Modifier) {
+    val isFailed = log.eventType == "FAILED" || log.eventType == "PROCESSING_ERROR"
+
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 14.dp)
+            .height(IntrinsicSize.Min),
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        val icon = when (log.eventType) {
+            "DELIVERED" -> Icons.AutoMirrored.Filled.CallMade
+            "SUBMITTED" -> Icons.AutoMirrored.Filled.ArrowForward
+            "FAILED", "PROCESSING_ERROR" -> Icons.AutoMirrored.Filled.CallMissed
+            else -> Icons.Outlined.SwapHoriz
+        }
+        
+        Icon(
+            icon,
+            contentDescription = null,
+            tint = if (isFailed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(24.dp)
+        )
+        
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Text(
+                log.details.takeIf { it.isNotBlank() } ?: log.eventType,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Row(
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    SimpleDateFormat("MMM dd, HH:mm:ss", Locale.getDefault()).format(Date(log.timestamp)),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                if (log.smsId != null) {
+                    Text(
+                        "0x${log.smsId.toString().takeLast(8).uppercase()}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary
+                    )
                 }
             }
         }
@@ -91,86 +228,24 @@ fun LogsScreen(
 }
 
 @Composable
-private fun LogCard(log: AuditLogEntity) {
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        color = MaterialTheme.colorScheme.surface,
-        shape = RoundedCornerShape(12.dp),
-        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+private fun ShimmerLogsList() {
+    Row(
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp).fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(
-            modifier = Modifier.padding(12.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalAlignment = Alignment.Top
+        Box(
+            modifier = Modifier
+                .size(24.dp)
+                .clip(CircleShape)
+                .shimmerEffect()
+        )
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Box(
-                modifier = Modifier
-                    .size(32.dp)
-                    .background(
-                        color = when (log.eventType) {
-                            "DELIVERED", "SUBMITTED" -> androidx.compose.ui.graphics.Color(0xFF4CAF50).copy(alpha = 0.1f)
-                            "FAILED", "PROCESSING_ERROR" -> MaterialTheme.colorScheme.error.copy(alpha = 0.1f)
-                            else -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.1f)
-                        },
-                        shape = RoundedCornerShape(8.dp)
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = when (log.eventType) {
-                        "DELIVERED" -> Icons.Outlined.CheckCircle
-                        "SUBMITTED" -> Icons.AutoMirrored.Filled.Send
-                        "RETRY_SCHEDULED" -> Icons.Default.Schedule
-                        "FAILED" -> Icons.Default.ErrorOutline
-                        "PROCESSING_ERROR" -> Icons.Default.Warning
-                        else -> Icons.Default.Info
-                    },
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp),
-                    tint = when (log.eventType) {
-                        "DELIVERED", "SUBMITTED" -> androidx.compose.ui.graphics.Color(0xFF4CAF50)
-                        "FAILED", "PROCESSING_ERROR" -> MaterialTheme.colorScheme.error
-                        else -> MaterialTheme.colorScheme.onSurfaceVariant
-                    }
-                )
-            }
-            
-            Column(modifier = Modifier.weight(1f)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = log.eventType,
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                    Text(
-                        text = SimpleDateFormat("MMM dd, HH:mm:ss", Locale.getDefault()).format(Date(log.timestamp)),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                Spacer(modifier = Modifier.height(2.dp))
-                Text(
-                    text = log.details,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    lineHeight = 18.sp
-                )
-                if (log.smsId != null) {
-                    Text(
-                        text = "SMS ID: ${log.smsId}",
-                        style = MaterialTheme.typography.labelExtraSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-                    )
-                }
-            }
+            Box(modifier = Modifier.height(14.dp).fillMaxWidth(0.8f).clip(CircleShape).shimmerEffect())
+            Box(modifier = Modifier.height(12.dp).fillMaxWidth(0.5f).clip(CircleShape).shimmerEffect())
         }
     }
 }
-
-private val Typography.labelExtraSmall: androidx.compose.ui.text.TextStyle
-    get() = labelSmall.copy(fontSize = 10.sp)

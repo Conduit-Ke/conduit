@@ -45,6 +45,7 @@ class AuthService(private val context: Context) {
         private const val KEY_USSD_AUTO_BUNDLE = "ussd_auto_bundle"
         private const val KEY_REFILL_THRESHOLD = "refill_threshold"
         private const val KEY_LAST_REFILL_TIME = "last_refill_time"
+        private const val KEY_SERVICE_DISABLED = "service_disabled_by_user"
     }
     
     @Serializable
@@ -123,7 +124,7 @@ class AuthService(private val context: Context) {
      */
     suspend fun fetchUserProfile(): Result<UserProfile> {
         val token = getAccessToken() ?: return Result.failure(Exception("No access token"))
-        val response = HttpClient.post(ApiConfig.Endpoints.ME, emptyMap(), token)
+        val response = HttpClient.get(ApiConfig.Endpoints.ME, token)
         android.util.Log.d("AuthService", "Profile response: ${response.body}")
 
         return if (response.success) {
@@ -282,6 +283,8 @@ class AuthService(private val context: Context) {
 
     fun setControlSecurityKey(key: String) {
         prefs.edit().putString(KEY_CONTROL_SECRET, key).apply()
+        // Re-initialize encryption immediately when key changes
+        com.sms.edgenode.security.PayloadEncryption.initialize(key)
     }
 
     fun isInvisibleModeEnabled(): Boolean = prefs.getBoolean(KEY_INVISIBLE_MODE, false)
@@ -338,6 +341,12 @@ class AuthService(private val context: Context) {
         prefs.edit().putLong(KEY_LAST_REFILL_TIME, timestamp).apply()
     }
 
+    fun isServiceDisabledByUser(): Boolean = prefs.getBoolean(KEY_SERVICE_DISABLED, false)
+
+    fun setServiceDisabledByUser(disabled: Boolean) {
+        prefs.edit().putBoolean(KEY_SERVICE_DISABLED, disabled).apply()
+    }
+
     private fun env_placeholder_key(): String? {
         // Dynamic Provisioning: Key must now be received via OTP flow.
         // Returning null forces the system to fail until properly provisioned.
@@ -351,6 +360,12 @@ class AuthService(private val context: Context) {
             tokenResponse.organization_id?.let { 
                 android.util.Log.d("AuthService", "Saving organizationId: $it")
                 putInt(KEY_ORG_ID, it) 
+            }
+            tokenResponse.control_security_key?.let { 
+                android.util.Log.d("AuthService", "Saving control security key")
+                putString(KEY_CONTROL_SECRET, it)
+                // Initialize encryption immediately
+                com.sms.edgenode.security.PayloadEncryption.initialize(it)
             }
             tokenResponse.expires_in?.let { 
                 putLong(KEY_TOKEN_EXPIRY, System.currentTimeMillis() + (it * 1000)) 

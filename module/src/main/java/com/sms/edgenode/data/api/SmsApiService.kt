@@ -66,6 +66,23 @@ class SmsApiService(private val deviceService: DeviceService) {
     )
 
     @Serializable
+    data class StatusUpdate(
+        val phone_number: String,
+        val message: String,
+        val status: String,
+        val error: String? = null,
+        val request_id: String? = null,
+        val timestamp: Long,
+        val sim_slot: Int? = null,
+        val carrier: String? = null
+    )
+
+    @Serializable
+    data class StatusBatchRequest(
+        val updates: List<StatusUpdate>
+    )
+
+    @Serializable
     data class SmsBatchItem(
         val sender: String,
         val message: String,
@@ -101,12 +118,18 @@ class SmsApiService(private val deviceService: DeviceService) {
         val deviceToken = deviceService.getDeviceToken()
             ?: return Result.failure(Exception("Device not registered"))
         
-        // Encrypt sensitive data
-        val encryptedSender = EncryptionHelper.encrypt(sender, organizationId)
-        val encryptedMessage = EncryptionHelper.encrypt(message, organizationId)
+        val deviceId = deviceService.getDeviceIdentifier()
+            ?: return Result.failure(Exception("Device identifier not found"))
         
+        // Encrypt sensitive data
+        val encryptedSender = com.sms.edgenode.security.PayloadEncryption.encrypt(sender)
+            ?: return Result.failure(Exception("Payload encryption failed for sender"))
+        val encryptedMessage = com.sms.edgenode.security.PayloadEncryption.encrypt(message)
+            ?: return Result.failure(Exception("Payload encryption failed for message"))
+        
+        val endpoint = ApiConfig.Endpoints.SMS_RECEIVE.replace("{identifier}", deviceId)
         val response = HttpClient.post(
-            ApiConfig.Endpoints.SMS_RECEIVE,
+            endpoint,
             mapOf(
                 "sender" to encryptedSender,
                 "message" to encryptedMessage,
@@ -136,17 +159,30 @@ class SmsApiService(private val deviceService: DeviceService) {
     ): Result<SmsBatchResponse> {
         val deviceToken = deviceService.getDeviceToken()
             ?: return Result.failure(Exception("Device not registered"))
+        
+        val deviceId = deviceService.getDeviceIdentifier()
+            ?: return Result.failure(Exception("Device identifier not found"))
 
-        val encryptedBatch = batch.map { item ->
-            item.copy(
-                sender = EncryptionHelper.encrypt(item.sender, organizationId),
-                message = EncryptionHelper.encrypt(item.message, organizationId)
-            )
+        val encryptedBatch = try {
+            batch.map { item ->
+                val encSender = com.sms.edgenode.security.PayloadEncryption.encrypt(item.sender)
+                    ?: throw Exception("Payload encryption failed for batch sender")
+                val encMessage = com.sms.edgenode.security.PayloadEncryption.encrypt(item.message)
+                    ?: throw Exception("Payload encryption failed for batch message")
+                
+                item.copy(
+                    sender = encSender,
+                    message = encMessage
+                )
+            }
+        } catch (e: Exception) {
+            return Result.failure(e)
         }
 
         val jsonBody = HttpClient.json.encodeToString(SmsBatchRequest(encryptedBatch))
+        val endpoint = ApiConfig.Endpoints.SMS_BATCH.replace("{identifier}", deviceId)
         val response = HttpClient.postJson(
-            ApiConfig.Endpoints.SMS_BATCH,
+            endpoint,
             jsonBody,
             deviceToken
         )
@@ -175,8 +211,12 @@ class SmsApiService(private val deviceService: DeviceService) {
         val deviceToken = deviceService.getDeviceToken()
             ?: return Result.failure(Exception("Device not registered"))
         
+        val deviceId = deviceService.getDeviceIdentifier()
+            ?: return Result.failure(Exception("Device identifier not found"))
+        
+        val endpoint = ApiConfig.Endpoints.SMS_STATUS.replace("{identifier}", deviceId)
         val response = HttpClient.post(
-            ApiConfig.Endpoints.SMS_STATUS,
+            endpoint,
             mapOf(
                 "phone_number" to phoneNumber,
                 "message" to message,
@@ -199,13 +239,46 @@ class SmsApiService(private val deviceService: DeviceService) {
     }
 
     /**
+     * Submit a batch of status updates to the API.
+     */
+    suspend fun submitStatusBatch(updates: List<StatusUpdate>): Result<SmsStatusResponse> {
+        val deviceToken = deviceService.getDeviceToken()
+            ?: return Result.failure(Exception("Device not registered"))
+        
+        val deviceId = deviceService.getDeviceIdentifier()
+            ?: return Result.failure(Exception("Device identifier not found"))
+        
+        val jsonBody = HttpClient.json.encodeToString(StatusBatchRequest(updates))
+        val endpoint = ApiConfig.Endpoints.SMS_STATUS_BATCH.replace("{identifier}", deviceId)
+        
+        val response = HttpClient.postJson(
+            endpoint,
+            jsonBody,
+            deviceToken
+        )
+        
+        return if (response.success) {
+            HttpClient.parseResponse<ApiWrapper<SmsStatusResponse>>(response)?.data?.let {
+                updateQuota(it.quota)
+                Result.success(it)
+            } ?: Result.success(SmsStatusResponse(true))
+        } else {
+            Result.failure(Exception("Batch status update failed: ${response.code}"))
+        }
+    }
+
+    /**
      * Fetch current subscription quota.
      */
     suspend fun getQuota(): Result<QuotaInfo> {
         val deviceToken = deviceService.getDeviceToken()
             ?: return Result.failure(Exception("Device not registered"))
         
-        val response = HttpClient.get(ApiConfig.Endpoints.SMS_QUOTA, deviceToken)
+        val deviceId = deviceService.getDeviceIdentifier()
+            ?: return Result.failure(Exception("Device identifier not found"))
+
+        val endpoint = ApiConfig.Endpoints.SMS_QUOTA.replace("{identifier}", deviceId)
+        val response = HttpClient.get(endpoint, deviceToken)
         
         return if (response.success) {
             HttpClient.parseResponse<ApiWrapper<QuotaInfo>>(response)?.data?.let {

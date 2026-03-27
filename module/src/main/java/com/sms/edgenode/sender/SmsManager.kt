@@ -26,8 +26,11 @@ class SmsManager(private val context: Context) {
         if (isPremiumNumber(destination)) return false
 
         val manager = if (preferredSlot != -1) {
-            getSmsManagerForSlot(preferredSlot) ?: defaultSmsManager
+            val sm = getSmsManagerForSlot(preferredSlot)
+            android.util.Log.d("SmsManager", "Using explicit manager for slot $preferredSlot (Found: ${sm != null})")
+            sm ?: defaultSmsManager
         } else {
+            android.util.Log.d("SmsManager", "Using default SMS manager")
             defaultSmsManager
         }
 
@@ -51,11 +54,13 @@ class SmsManager(private val context: Context) {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
+        android.util.Log.i("SmsManager", "Submitting SMS $smsId to ${destination.takeLast(4)} (Length: ${message.length})")
+
         return try {
             manager.sendTextMessage(destination, null, message, sentIntent, deliveryIntent)
             true
         } catch (e: Exception) {
-            android.util.Log.e("SmsManager", "Submission failed for $smsId: ${e.message}")
+            android.util.Log.e("SmsManager", "Submission failed for $smsId: ${e.message}", e)
             false
         }
     }

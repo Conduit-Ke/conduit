@@ -99,23 +99,32 @@ class SimHealthManager(private val context: Context) {
     }
 
     suspend fun getBestSim(preferredSlot: Int): Int = mutex.withLock {
-        
-        // If preferred SIM is healthy, use it
+        // If preferred SIM is healthy or at least not quarantined, use it
         val preferredState = simHealth[preferredSlot]
-        if (preferredState == null || preferredState.status == SimStatus.HEALTHY) {
+        if (preferredState == null || preferredState.status != SimStatus.QUARANTINED) {
             return@withLock preferredSlot
         }
         
-        // Otherwise, find first non-quarantined SIM
-        for ((slot, state) in simHealth) {
-            if (state.status != SimStatus.QUARANTINED && slot != preferredSlot) {
+        // Otherwise, find first non-quarantined SIM in active list
+        val activeSlots = getActiveSlots().sorted()
+        for (slot in activeSlots) {
+            val state = simHealth[slot] ?: return@withLock slot
+            if (state.status != SimStatus.QUARANTINED) {
                 android.util.Log.i("SimHealthManager", "Failing over from SIM $preferredSlot to SIM $slot")
                 return@withLock slot
             }
         }
         
-        // No alternatives, return preferred even if degraded
         return@withLock preferredSlot
+    }
+
+    private fun getActiveSlots(): List<Int> {
+        return try {
+            val subManager = context.getSystemService(Context.TELEPHONY_SUBSCRIPTION_SERVICE) as SubscriptionManager
+            subManager.activeSubscriptionInfoList?.map { it.simSlotIndex } ?: emptyList()
+        } catch (e: SecurityException) {
+            listOf(0, 1)
+        }
     }
 
     fun getCarrierInfo(simSlot: Int): CarrierInfo? {

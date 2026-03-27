@@ -3,18 +3,20 @@ package com.sms.edgenode.ui
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Bundle
-import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.*
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.automirrored.filled.*
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import com.sms.edgenode.ui.screens.*
@@ -22,6 +24,10 @@ import com.sms.edgenode.ui.theme.*
 import com.sms.edgenode.ui.components.*
 import androidx.appcompat.app.AppCompatActivity
 import kotlinx.coroutines.*
+import org.koin.compose.koinInject
+import com.sms.edgenode.data.api.AuthService
+import com.sms.edgenode.data.api.DeviceService
+
 
 val LocalTopNotificationState = staticCompositionLocalOf<TopNotificationState> {
     error("No TopNotificationState provided")
@@ -30,15 +36,12 @@ val LocalTopNotificationState = staticCompositionLocalOf<TopNotificationState> {
 class MainActivity : AppCompatActivity() {
     private val permissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
-    ) { }
-
-    private val singlePermissionLauncher = registerForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { }
+    ) {
+        requestBatteryOptimizationIfNeeded()
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        
         supportActionBar?.hide()
         
         @Suppress("DEPRECATION")
@@ -47,7 +50,7 @@ class MainActivity : AppCompatActivity() {
         window.navigationBarColor = android.graphics.Color.TRANSPARENT
         
         setContent {
-            val isDarkTheme by ThemeState.isDarkTheme
+            val isDarkTheme = ThemeState.isDarkTheme.value ?: isSystemInDarkTheme()
             val topNotificationState = rememberTopNotificationState()
             
             EdgeNodeTheme(darkTheme = isDarkTheme) {
@@ -72,6 +75,7 @@ class MainActivity : AppCompatActivity() {
             Manifest.permission.SEND_SMS,
             Manifest.permission.READ_SMS,
             Manifest.permission.READ_PHONE_STATE,
+            Manifest.permission.CALL_PHONE,
             Manifest.permission.POST_NOTIFICATIONS
         )
 
@@ -81,46 +85,68 @@ class MainActivity : AppCompatActivity() {
 
         if (missing.isNotEmpty()) {
             permissionLauncher.launch(missing.toTypedArray())
+        } else {
+            requestBatteryOptimizationIfNeeded()
         }
     }
 
-    fun requestSinglePermission(permission: String) {
-        singlePermissionLauncher.launch(permission)
+    private fun requestBatteryOptimizationIfNeeded() {
+        val powerManager = getSystemService(android.content.Context.POWER_SERVICE) as android.os.PowerManager
+        if (!powerManager.isIgnoringBatteryOptimizations(packageName)) {
+            val intent = android.content.Intent(android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                data = android.net.Uri.parse("package:$packageName")
+            }
+            startActivity(intent)
+        }
     }
 }
 
 @Composable
 fun AppNavigation() {
+    val authService: AuthService = koinInject()
+    val deviceService: DeviceService = koinInject()
     val context = androidx.compose.ui.platform.LocalContext.current
-    val app = context.applicationContext as com.sms.edgenode.EdgeNodeApp
-    val authService = app.authService
-    val deviceService = app.deviceService
     val scope = rememberCoroutineScope()
     
     var isLoggedIn by remember { mutableStateOf(authService.isLoggedIn()) }
+    var hasSeenOnboarding by remember {
+        mutableStateOf(
+            context.getSharedPreferences("app_prefs", android.content.Context.MODE_PRIVATE)
+                .getBoolean("has_seen_onboarding", false)
+        )
+    }
 
     AnimatedContent(
-        targetState = isLoggedIn,
-        transitionSpec = { fadeIn() togetherWith fadeOut() },
-        label = "AppNavigation"
-    ) { loggedIn ->
-        if (!loggedIn) {
-            LoginScreen(onLogin = { 
-                isLoggedIn = true 
-            })
-        } else {
-            MainApp(onLogout = {
+        targetState = when {
+            !hasSeenOnboarding -> "onboarding"
+            !isLoggedIn -> "login"
+            else -> "main"
+        },
+        transitionSpec = { 
+            val isForward = initialState == "onboarding" || (initialState == "login" && targetState == "main")
+            MaterialMotion.sharedZAxis(forward = isForward) 
+        },
+        label = "AuthNavigation"
+    ) { screen ->
+        when (screen) {
+            "onboarding" -> OnboardingScreen(
+                onComplete = {
+                    context.getSharedPreferences("app_prefs", android.content.Context.MODE_PRIVATE)
+                        .edit()
+                        .putBoolean("has_seen_onboarding", true)
+                        .apply()
+                    hasSeenOnboarding = true
+                },
+                onRequestPermissions = {
+                    (context as? MainActivity)?.requestPermissionsIfNeeded()
+                }
+            )
+            "login" -> LoginScreen(onLogin = { isLoggedIn = true })
+            "main" -> MainApp(onLogout = {
                 scope.launch {
-                    // 1. Tell backend we are logging out
                     authService.logout()
-                    
-                    // 2. Clear all local preferences
                     deviceService.clear()
-                    
-                    // 3. Stop the routing service
                     com.sms.edgenode.service.RoutingService.stop(context)
-                    
-                    // 5. Update UI state
                     isLoggedIn = false
                 }
             })
@@ -130,123 +156,76 @@ fun AppNavigation() {
 
 @Composable
 fun MainApp(onLogout: () -> Unit) {
-    var selectedTab by remember { mutableStateOf(0) }
-    var previousTab by remember { mutableStateOf(0) }
-    val snackbarHostState = remember { SnackbarHostState() }
-
+    var selectedTab by remember { mutableIntStateOf(0) }
+    
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
-        snackbarHost = { SnackbarHost(snackbarHostState) },
         bottomBar = {
+            // Solid modern background design
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                shape = RoundedCornerShape(24.dp),
-                tonalElevation = 3.dp,
-                shadowElevation = 8.dp
+                    .padding(horizontal = DesignTokens.Spacing2, vertical = DesignTokens.Spacing2),
+                shape = DesignTokens.CardShape,
+                color = MaterialTheme.colorScheme.surface,
+                shadowElevation = DesignTokens.ElevationCard,
+                tonalElevation = DesignTokens.ElevationFloating
             ) {
                 NavigationBar(
-                    containerColor = MaterialTheme.colorScheme.surface,
-                    modifier = Modifier.height(56.dp),
+                    containerColor = Color.Transparent,
+                    modifier = Modifier.height(68.dp),
                     tonalElevation = 0.dp
                 ) {
-                    NavigationBarItem(
-                        selected = selectedTab == 0,
-                        alwaysShowLabel = false,
-                        onClick = { 
-                            previousTab = selectedTab
-                            selectedTab = 0 
-                        },
-                        icon = { Icon(Icons.Filled.Home, "Home") },
-                        label = { Text("Home", style = MaterialTheme.typography.labelSmall) },
-                        colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = MaterialTheme.colorScheme.primary,
-                            selectedTextColor = MaterialTheme.colorScheme.primary,
-                            indicatorColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
-                            unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                            unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-                        )
+                    val items = listOf(
+                        Triple(0, Icons.Filled.Dashboard, "Dashboard"),
+                        Triple(1, Icons.AutoMirrored.Filled.List, "Queue"),
+                        Triple(2, Icons.Default.History, "Logs"),
+                        Triple(3, Icons.Filled.Settings, "Settings")
                     )
-                    NavigationBarItem(
-                        selected = selectedTab == 1,
-                        alwaysShowLabel = false,
-                        onClick = { 
-                            previousTab = selectedTab
-                            selectedTab = 1 
-                        },
-                        icon = { Icon(Icons.AutoMirrored.Filled.List, "Queue") },
-                        label = { Text("Queue", style = MaterialTheme.typography.labelSmall) },
-                        colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = MaterialTheme.colorScheme.primary,
-                            selectedTextColor = MaterialTheme.colorScheme.primary,
-                            indicatorColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
-                            unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                            unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+
+                    items.forEach { (index, icon, label) ->
+                        NavigationBarItem(
+                            selected = selectedTab == index,
+                            onClick = { selectedTab = index },
+                            icon = { 
+                                Icon(
+                                    icon, 
+                                    label,
+                                    modifier = Modifier.size(24.dp)
+                                ) 
+                            },
+                            label = { 
+                                Text(
+                                    label, 
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = if (selectedTab == index) FontWeight.Bold else FontWeight.Normal
+                                ) 
+                            },
+                            colors = NavigationBarItemDefaults.colors(
+                                selectedIconColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                                selectedTextColor = MaterialTheme.colorScheme.onSurface,
+                                indicatorColor = MaterialTheme.colorScheme.secondaryContainer,
+                                unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                         )
-                    )
-                    NavigationBarItem(
-                        selected = selectedTab == 2,
-                        alwaysShowLabel = false,
-                        onClick = { 
-                            previousTab = selectedTab
-                            selectedTab = 2 
-                        },
-                        icon = { Icon(Icons.Default.History, "Logs") },
-                        label = { Text("Logs", style = MaterialTheme.typography.labelSmall) },
-                        colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = MaterialTheme.colorScheme.primary,
-                            selectedTextColor = MaterialTheme.colorScheme.primary,
-                            indicatorColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
-                            unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                            unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-                        )
-                    )
-                    NavigationBarItem(
-                        selected = selectedTab == 3,
-                        alwaysShowLabel = false,
-                        onClick = { 
-                            previousTab = selectedTab
-                            selectedTab = 3 
-                        },
-                        icon = { Icon(Icons.Filled.Settings, "Settings") },
-                        label = { Text("Settings", style = MaterialTheme.typography.labelSmall) },
-                        colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = MaterialTheme.colorScheme.primary,
-                            selectedTextColor = MaterialTheme.colorScheme.primary,
-                            indicatorColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
-                            unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                            unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-                        )
-                    )
+                    }
                 }
             }
         }
-    ) { padding ->
+    ) { paddingValues ->
         AnimatedContent(
             targetState = selectedTab,
-            transitionSpec = {
-                if (targetState > initialState) {
-                    slideInHorizontally { it } togetherWith slideOutHorizontally { -it }
-                } else {
-                    slideInHorizontally { -it } togetherWith slideOutHorizontally { it }
-                }
-            },
-            label = "tab_transition"
+            transitionSpec = { MaterialMotion.fadeThrough() },
+            label = "ContentNavigation"
         ) { tab ->
+            val paddingModifier = Modifier.padding(paddingValues)
             when (tab) {
-                0 -> HomeScreen(
-                    modifier = Modifier.padding(padding),
-                    onNavigateToLogs = { selectedTab = 2 }
-                )
-                1 -> QueueScreen(Modifier.padding(padding))
-                2 -> LogsScreen(
-                    modifier = Modifier.padding(padding),
-                    onBack = { selectedTab = 0 }
-                )
-                3 -> SettingsScreen(Modifier.padding(padding), onLogout)
+                0 -> HomeScreen(paddingModifier)
+                1 -> QueueScreen(paddingModifier)
+                2 -> LogsScreen(paddingModifier, onBack = { selectedTab = 0 })
+                3 -> SettingsScreen(paddingModifier, onLogout)
             }
         }
     }
 }
-

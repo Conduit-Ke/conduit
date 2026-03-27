@@ -14,7 +14,11 @@ object SignatureVerifier {
             mac.init(javax.crypto.spec.SecretKeySpec(key, "HmacSHA256"))
             val hmac = mac.doFinal(data.toByteArray())
             val hex = hmac.joinToString("") { "%02x".format(it) }
-            hex.equals(signatureHex, ignoreCase = true)
+            
+            java.security.MessageDigest.isEqual(
+                hex.lowercase().toByteArray(Charsets.UTF_8),
+                signatureHex.lowercase().toByteArray(Charsets.UTF_8)
+            )
         } catch (e: Exception) {
             false
         }

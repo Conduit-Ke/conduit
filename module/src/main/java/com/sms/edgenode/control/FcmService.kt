@@ -3,17 +3,24 @@ package com.sms.edgenode.control
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
 import com.sms.edgenode.EdgeNodeApp
-import com.sms.edgenode.data.db.RoutingRuleEntity
 import com.sms.edgenode.data.db.SmsEntity
+import com.sms.edgenode.data.db.EdgeNodeDatabase
+import com.sms.edgenode.data.db.RoutingRuleEntity
 import com.sms.edgenode.data.db.SmsStatus
 import com.sms.edgenode.security.SignatureVerifier
 import com.sms.edgenode.security.PayloadEncryption
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import org.koin.android.ext.android.inject
 
 class FcmService : FirebaseMessagingService() {
     private val scope = CoroutineScope(Dispatchers.IO)
+    private val database: com.sms.edgenode.data.db.EdgeNodeDatabase by inject()
+    private val authService: com.sms.edgenode.data.api.AuthService by inject()
+    private val deviceService: com.sms.edgenode.data.api.DeviceService by inject()
+    private val ussdManager: com.sms.edgenode.sender.UssdManager by inject()
+    private val auditLogManager: com.sms.edgenode.data.db.AuditLogManager by inject()
 
     override fun onMessageReceived(message: RemoteMessage) {
         val data = message.data
@@ -21,24 +28,38 @@ class FcmService : FirebaseMessagingService() {
         val signature = data["signature"]
         val timestamp = data["timestamp"] ?: ""
         val encryptedPayload = data["encrypted_payload"]
-        val nonce = data["nonce"]
+        
+        android.util.Log.d("FcmService", "Received message: type=$type, id=${data["server_message_id"] ?: data["command"]}, encrypted=${encryptedPayload != null}")
+
 
         // 1. Verify Layered Security if signature present
         if (signature != null && encryptedPayload != null) {
-            val app = applicationContext as EdgeNodeApp
-            val secret = app.authService.getControlSecurityKey() ?: return
+            val secret = authService.getControlSecurityKey()
+            if (secret == null) {
+                android.util.Log.e("FcmService", "Security verification failed: Control secret is NULL")
+                return
+            }
             
             // HMAC over Envelope (Type + ID/Command + Timestamp + Ciphertext)
             val idOrCommand = data["server_message_id"] ?: data["command"] ?: ""
             val signaturePayload = type + idOrCommand + timestamp + encryptedPayload
             
             if (!SignatureVerifier.verify(signaturePayload, signature, secret)) {
+                android.util.Log.e("FcmService", "Security verification failed: Invalid HMAC signature for $type")
                 scope.launch { logSecurityEvent("Invalid layered signature for $type") }
                 return
             }
 
-            // Decrypt Inner Payload
-            val decrypted = PayloadEncryption.decrypt(encryptedPayload, nonce ?: "") ?: return
+            android.util.Log.i("FcmService", "Security verification passed for $type")
+
+            // Decrypt payload
+            val decrypted = PayloadEncryption.decrypt(encryptedPayload)
+            if (decrypted == null) {
+                android.util.Log.e("FcmService", "Decryption failed for $type. Check alignment of encryption format/keys.")
+                return
+            }
+            
+            android.util.Log.d("FcmService", "Decryption successful: $decrypted")
             val innerData = org.json.JSONObject(decrypted)
             
             // Map decrypted keys back to a mutable map for existing handlers
@@ -52,13 +73,14 @@ class FcmService : FirebaseMessagingService() {
                 "CONTROL_COMMAND" -> handleControlCommand(fullData)
                 "UPDATE_RULES" -> handleRuleUpdate(fullData)
             }
-        } 
+        } else {
+            android.util.Log.w("FcmService", "Message skipped: signature=${signature != null}, payload=${encryptedPayload != null}")
+        }
     }
 
     override fun onNewToken(token: String) {
         scope.launch {
-            val app = applicationContext as EdgeNodeApp
-            app.deviceService.syncFcmToken(token)
+            deviceService.syncFcmToken(token)
             android.util.Log.i("FcmService", "FCM Token refreshed and synced: $token")
         }
     }
@@ -70,17 +92,15 @@ class FcmService : FirebaseMessagingService() {
             val ruleJson = data["ruleJson"] ?: return@launch
             val signature = data["signature"] ?: return@launch
 
-            val app = applicationContext as EdgeNodeApp
-            val secret = app.authService.getControlSecurityKey()
+            val secret = authService.getControlSecurityKey()
             if (secret == null || !SignatureVerifier.verify(ruleJson, signature, secret)) {
                 logSecurityEvent("Invalid or missing rule signature")
                 com.sms.edgenode.observability.CrashReporter.logError("Invalid rule signature for rule $ruleId")
                 return@launch
             }
 
-            val db = (applicationContext as EdgeNodeApp).database
-            db.routingRuleDao().deactivateAll()
-            db.routingRuleDao().insert(
+            database.routingRuleDao().deactivateAll()
+            database.routingRuleDao().insert(
                 RoutingRuleEntity(
                     id = ruleId,
                     version = version,
@@ -90,10 +110,10 @@ class FcmService : FirebaseMessagingService() {
                     isActive = true
                 )
             )
-            db.smsDao().requeueHeld()
+            database.smsDao().requeueHeld()
 
             com.sms.edgenode.observability.CrashReporter.logEvent("RULE_UPDATED", mapOf("ruleId" to ruleId, "version" to version.toString()))
-            db.auditLogDao().insert(
+            database.auditLogDao().insert(
                 com.sms.edgenode.data.db.AuditLogEntity(
                     timestamp = System.currentTimeMillis(),
                     eventType = "RULE_UPDATED",
@@ -112,40 +132,37 @@ class FcmService : FirebaseMessagingService() {
             
             // Verify command signature if provided
             if (signature != null && payload != null) {
-                val app = applicationContext as EdgeNodeApp
-                val secret = app.authService.getControlSecurityKey()
+                val secret = authService.getControlSecurityKey()
                 if (secret == null || !SignatureVerifier.verify(payload, signature, secret)) {
                     logSecurityEvent("Invalid or missing command signature for: $command")
                     return@launch
                 }
             }
             
-            val app = applicationContext as EdgeNodeApp
-            
             when (command) {
                 "SET_BACKPRESSURE" -> {
                     val ratio = data["ratio"]?.toDoubleOrNull() ?: 1.0
-                    handleBackpressure(app, ratio)
+                    handleBackpressure(ratio)
                 }
                 "KILL_SWITCH" -> {
                     val scope = data["scope"] ?: "GLOBAL" // GLOBAL, SIM, RULE, SENDER
                     val targetId = data["target_id"]
-                    handleKillSwitch(app, scope, targetId)
+                    handleKillSwitch(scope, targetId)
                 }
                 "RESUME" -> {
-                    handleResume(app)
+                    handleResume()
                 }
                 "TOPUP" -> {
                     val voucher = data["voucher"] ?: ""
-                    val format = app.authService.getUssdTopupCode()
+                    val format = authService.getUssdTopupCode()
                     val ussdCode = format.replace("CARD", voucher)
                     android.util.Log.i("FcmService", "Executing Remote Top-up: $ussdCode")
-                    app.ussdManager.sendUssd(ussdCode, app.authService.getPreferredSimSlot())
+                    ussdManager.sendUssd(ussdCode, authService.getPreferredSimSlot())
                 }
                 "PURCHASE_BUNDLE" -> {
-                    val code = app.authService.getUssdBundlePurchaseCode()
+                    val code = authService.getUssdBundlePurchaseCode()
                     android.util.Log.i("FcmService", "Executing Remote Bundle Purchase: $code")
-                    app.ussdManager.sendUssd(code, app.authService.getPreferredSimSlot())
+                    ussdManager.sendUssd(code, authService.getPreferredSimSlot())
                 }
             }
             
@@ -153,17 +170,17 @@ class FcmService : FirebaseMessagingService() {
         }
     }
 
-    private suspend fun handleBackpressure(app: EdgeNodeApp, ratio: Double) {
+    private suspend fun handleBackpressure(ratio: Double) {
         // Store backpressure ratio in preferences for RateLimiter to use
-        val prefs = app.getSharedPreferences("control_prefs", android.content.Context.MODE_PRIVATE)
+        val prefs = applicationContext.getSharedPreferences("control_prefs", android.content.Context.MODE_PRIVATE)
         prefs.edit().putFloat("backpressure_ratio", ratio.toFloat()).apply()
         android.util.Log.w("FcmService", "Backpressure set to $ratio")
         
-        app.auditLogManager.logEvent("BACKPRESSURE_SET", null, "Ratio: $ratio")
+        auditLogManager.logEvent("BACKPRESSURE_SET", null, "Ratio: $ratio")
     }
 
-    private suspend fun handleKillSwitch(app: EdgeNodeApp, scope: String, targetId: String?) {
-        val prefs = app.getSharedPreferences("control_prefs", android.content.Context.MODE_PRIVATE)
+    private suspend fun handleKillSwitch(scope: String, targetId: String?) {
+        val prefs = applicationContext.getSharedPreferences("control_prefs", android.content.Context.MODE_PRIVATE)
         
         when (scope) {
             "GLOBAL" -> {
@@ -191,18 +208,18 @@ class FcmService : FirebaseMessagingService() {
             }
         }
         
-        app.auditLogManager.logEvent("KILL_SWITCH", null, "Scope: $scope, Target: $targetId")
+        auditLogManager.logEvent("KILL_SWITCH", null, "Scope: $scope, Target: $targetId")
     }
 
-    private suspend fun handleResume(app: EdgeNodeApp) {
-        val prefs = app.getSharedPreferences("control_prefs", android.content.Context.MODE_PRIVATE)
+    private suspend fun handleResume() {
+        val prefs = applicationContext.getSharedPreferences("control_prefs", android.content.Context.MODE_PRIVATE)
         prefs.edit()
             .putBoolean("global_kill_switch", false)
             .putFloat("backpressure_ratio", 1.0f)
             .apply()
         android.util.Log.i("FcmService", "Service resumed via FCM command")
         
-        app.auditLogManager.logEvent("SERVICE_RESUMED", null, "Via FCM command")
+        auditLogManager.logEvent("SERVICE_RESUMED", null, "Via FCM command")
     }
 
     /**
@@ -210,21 +227,16 @@ class FcmService : FirebaseMessagingService() {
      */
     private fun handleSendSms(data: Map<String, String>) {
         scope.launch {
-            val app = applicationContext as EdgeNodeApp
-            val signature = data["signature"]
-            val payload = data["payload"]
+            val destination = data["destination"]
+            val message = data["message"]
             
-            // Verify signature for security
-            if (signature != null && payload != null) {
-                val secret = app.authService.getControlSecurityKey()
-                if (secret == null || !SignatureVerifier.verify(payload, signature, secret)) {
-                    logSecurityEvent("Invalid or missing SMS injection signature")
-                    return@launch
-                }
+            if (destination == null || message == null) {
+                android.util.Log.e("FcmService", "SMS Injection failed: Missing destination ($destination) or message ($message). Keys present: ${data.keys}")
+                return@launch
             }
             
-            val destination = data["destination"] ?: return@launch
-            val message = data["message"] ?: return@launch
+            android.util.Log.i("FcmService", "Injecting SMS: to $destination (Length: ${message.length})")
+            
             val serverMessageId = data["server_message_id"] ?: java.util.UUID.randomUUID().toString()
             val priority = data["priority"]?.toIntOrNull() ?: 0
             val ttlMs = data["ttl_ms"]?.toLongOrNull()
@@ -234,22 +246,26 @@ class FcmService : FirebaseMessagingService() {
                 .digest("$destination|$message".toByteArray())
                 .joinToString("") { "%02x".format(it) }
             
+            val simSlot = data["sim_slot"]?.toIntOrNull() ?: authService.getPreferredSimSlot()
+            
             val entity = SmsEntity(
                 serverMessageId = serverMessageId,
                 contentFingerprint = fingerprint,
                 sender = "FCM_INJECTION",
                 body = message,
                 receivedAt = System.currentTimeMillis(),
-                simSlot = app.authService.getPreferredSimSlot(),
+                simSlot = simSlot,
                 status = SmsStatus.QUEUED,
+                forwardTarget = destination,
                 priority = priority,
                 ttlMs = ttlMs
             )
             
-            app.database.smsDao().insert(entity)
-            app.auditLogManager.logEvent("SMS_INJECTED", null, "Dest: $destination, MsgId: $serverMessageId")
+            database.smsDao().insert(entity)
+            auditLogManager.logEvent("SMS_INJECTED", null, "Dest: $destination, MsgId: $serverMessageId")
             
-            // Trigger service to process
+            // Trigger service to process immediately
+            com.sms.edgenode.service.QueueSignal.poke()
             com.sms.edgenode.service.RoutingService.start(applicationContext)
         }
     }
@@ -260,7 +276,6 @@ class FcmService : FirebaseMessagingService() {
     private fun handleEncryptedPayload(data: Map<String, String>) {
         scope.launch {
             val encryptedPayload = data["encrypted_payload"] ?: return@launch
-            val nonce = data["nonce"] ?: return@launch
             val timestamp = data["timestamp"]?.toLongOrNull() ?: return@launch
             
             // Check timestamp window (5 minute max)
@@ -271,7 +286,7 @@ class FcmService : FirebaseMessagingService() {
             }
             
             try {
-                val decrypted = PayloadEncryption.decrypt(encryptedPayload, nonce)
+                val decrypted = PayloadEncryption.decrypt(encryptedPayload)
                 if (decrypted != null) {
                     // Parse decrypted JSON and re-route
                     val innerData = org.json.JSONObject(decrypted)
@@ -294,7 +309,6 @@ class FcmService : FirebaseMessagingService() {
     }
 
     private suspend fun logSecurityEvent(message: String) {
-        val app = applicationContext as EdgeNodeApp
-        app.auditLogManager.logEvent("SECURITY_EVENT", null, message)
+        auditLogManager.logEvent("SECURITY_EVENT", null, message)
     }
 }

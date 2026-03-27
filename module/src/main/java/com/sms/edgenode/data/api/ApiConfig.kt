@@ -5,7 +5,9 @@ package com.sms.edgenode.data.api
  */
 object ApiConfig {
     // Base URL for the API - change for production
-    var baseUrl: String = "http://192.168.100.4:3000/api"
+    // Local: http://192.168.2.102:8080/v1  (or use host.docker.internal if in emulator)
+    // Production: https://18.153.158.84/api/v1/app
+    var baseUrl: String = "http://192.168.2.102:8080/v1/app"
     
     // Connection timeouts
     const val CONNECT_TIMEOUT_MS = 30_000
@@ -23,12 +25,17 @@ object ApiConfig {
         
         const val DEVICE_REGISTER = "/devices/register"
         const val DEVICE_STATUS = "/devices/{identifier}/status"
+        const val DEVICE_VERIFY = "/devices/{identifier}/verify"
         const val DEVICE_HEARTBEAT = "/devices/{identifier}/heartbeat"
         const val DEVICE_TELEMETRY = "/devices/{identifier}/telemetry"
+        const val DEVICE_FCM_TOKEN = "/devices/{identifier}/fcm-token"
+        const val DEVICE_METRICS = "/devices/{identifier}/metrics"
+        const val DEVICE_REFILL = "/devices/{identifier}/refill"
         
-        const val SMS_RECEIVE = "/sms"
-        const val SMS_BATCH = "/sms-batch"
-        const val SMS_STATUS = "/sms/status"
-        const val SMS_QUOTA = "/sms/quota"
+        const val SMS_RECEIVE = "/devices/{identifier}/receive"
+        const val SMS_BATCH = "/devices/{identifier}/receive-batch"
+        const val SMS_STATUS = "/devices/{identifier}/status"
+        const val SMS_STATUS_BATCH = "/devices/{identifier}/status-batch"
+        const val SMS_QUOTA = "/devices/{identifier}/quota"
     }
 }

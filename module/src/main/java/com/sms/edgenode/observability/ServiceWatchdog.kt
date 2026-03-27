@@ -4,10 +4,22 @@ import android.app.ActivityManager
 import android.content.Context
 import androidx.work.*
 import com.sms.edgenode.service.RoutingService
+import com.sms.edgenode.data.db.EdgeNodeDatabase
+import org.koin.core.component.KoinComponent
+import org.koin.core.component.inject
 import java.util.concurrent.TimeUnit
 
-class ServiceWatchdog(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
+class ServiceWatchdog(context: Context, params: WorkerParameters) : CoroutineWorker(context, params), KoinComponent {
+    private val database: EdgeNodeDatabase by inject()
+    private val authService: com.sms.edgenode.data.api.AuthService by inject()
+
     override suspend fun doWork(): Result {
+        // Respect user's explicit intent to disable the service
+        if (authService.isServiceDisabledByUser()) {
+            android.util.Log.d("ServiceWatchdog", "Service disabled by user, skipping restart")
+            return Result.success()
+        }
+
         if (!isServiceRunning()) {
             RoutingService.start(applicationContext)
             logWatchdogEvent("Service restarted by watchdog")
@@ -24,8 +36,7 @@ class ServiceWatchdog(context: Context, params: WorkerParameters) : CoroutineWor
     }
 
     private suspend fun logWatchdogEvent(message: String) {
-        val app = applicationContext as com.sms.edgenode.EdgeNodeApp
-        app.database.auditLogDao().insert(
+        database.auditLogDao().insert(
             com.sms.edgenode.data.db.AuditLogEntity(
                 timestamp = System.currentTimeMillis(),
                 eventType = "WATCHDOG",

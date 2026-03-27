@@ -65,11 +65,14 @@ object HttpClient {
     /**
      * Generic HTTP request.
      */
+    private var isRefreshing = java.util.concurrent.atomic.AtomicBoolean(false)
+
     private suspend fun request(
         method: String,
         endpoint: String,
         body: String?,
-        token: String?
+        token: String?,
+        isRetry: Boolean = false
     ): Response {
         return kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
             var currentToken = token
@@ -101,12 +104,24 @@ object HttpClient {
                 var responseCode = connection.responseCode
                 
                 // Handle 401 Unauthorized with auto-refresh
-                if (responseCode == 401 && onUnauthorized != null) {
-                    android.util.Log.w("HttpClient", "401 Unauthorized for $endpoint. Attempting refresh...")
-                    if (onUnauthorized?.invoke() == true) {
-                        android.util.Log.i("HttpClient", "Refresh successful. Retrying $endpoint...")
-                        connection.disconnect()
-                        return@withContext request(method, endpoint, body, token) // Recurse once
+                // Guard: don't retry auth endpoints, don't recurse, and use atomic lock
+                val isAuthEndpoint = endpoint.contains("/auth/")
+                if (responseCode == 401 && !isRetry && !isAuthEndpoint && onUnauthorized != null) {
+                    if (isRefreshing.compareAndSet(false, true)) {
+                        try {
+                            android.util.Log.w("HttpClient", "401 Unauthorized for $endpoint. Attempting refresh...")
+                            if (onUnauthorized?.invoke() == true) {
+                                android.util.Log.i("HttpClient", "Refresh successful. Retrying $endpoint...")
+                                connection.disconnect()
+                                // Retry with isRetry=true to prevent further recursion
+                                // Pass token=null so the caller can re-read the refreshed token
+                                return@withContext request(method, endpoint, body, token, isRetry = true)
+                            }
+                        } finally {
+                            isRefreshing.set(false)
+                        }
+                    } else {
+                        android.util.Log.d("HttpClient", "Refresh already in progress, skipping retry for $endpoint")
                     }
                 }
 

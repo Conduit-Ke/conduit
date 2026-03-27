@@ -78,6 +78,12 @@ dependencies {
     implementation("androidx.compose.material:material-icons-extended")
     implementation("androidx.compose.material3:material3")
     implementation("androidx.activity:activity-compose:1.8.2")
+    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
+    
+    // Accompanist for modern UI patterns
+    implementation("com.google.accompanist:accompanist-pager:0.32.0")
+    implementation("com.google.accompanist:accompanist-pager-indicators:0.32.0")
+    implementation("com.google.accompanist:accompanist-systemuicontroller:0.32.0")
     
     implementation("com.google.firebase:firebase-messaging-ktx:23.4.0")
     implementation("com.google.firebase:firebase-crashlytics-ktx:18.6.1")
@@ -86,4 +92,8 @@ dependencies {
     
     implementation("net.zetetic:android-database-sqlcipher:4.5.4")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.0")
+
+    // Koin proper DI
+    implementation("io.insert-koin:koin-android:3.5.3")
+    implementation("io.insert-koin:koin-androidx-compose:3.5.3")
 }

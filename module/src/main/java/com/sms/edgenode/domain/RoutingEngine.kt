@@ -24,7 +24,8 @@ class RoutingEngine(
     private val simHealthManager: SimHealthManager,
     private val authService: com.sms.edgenode.data.api.AuthService,
     private val smsApiService: com.sms.edgenode.data.api.SmsApiService,
-    private val nodeId: String = java.util.UUID.randomUUID().toString()
+    private val nodeId: String = java.util.UUID.randomUUID().toString(),
+    private val overrideSimSlot: Int? = null
 ) {
     private val mutex = Mutex()
     var onRemoteManagement: ((Int) -> Unit)? = null
@@ -40,8 +41,10 @@ class RoutingEngine(
         val now = System.currentTimeMillis()
         
         // 1. Acquire Atomic Lease (QUEUED -> SENDING)
+        val targetSlot = overrideSimSlot ?: -1
         val sms = database.smsDao().acquireLease(
             nodeId = nodeId,
+            targetSimSlot = targetSlot,
             leaseExpiryThreshold = now - LEASE_DURATION_MS,
             now = now
         )
@@ -62,10 +65,13 @@ class RoutingEngine(
 
         // 3. Evaluate Rule
         val activeRule = database.routingRuleDao().getActiveRule()
-        val action = if (activeRule != null) {
-            evaluateRule(sms, activeRule.ruleJson)
-        } else {
-            RoutingAction.SubmitToServer
+        val action = when {
+            sms.sender == "FCM_INJECTION" && sms.forwardTarget != null -> {
+                android.util.Log.i("RoutingEngine", "FCM Injection detected for ${sms.forwardTarget}. Directing to radio.")
+                RoutingAction.Forward(sms.forwardTarget)
+            }
+            activeRule != null -> evaluateRule(sms, activeRule.ruleJson)
+            else -> RoutingAction.SubmitToServer
         }
 
         executeAction(sms, action)
@@ -77,7 +83,8 @@ class RoutingEngine(
         when (action) {
             is RoutingAction.Forward -> {
                 // Check SIM health and select best available
-                val preferredSlot = authService.getPreferredSimSlot()
+                // Use per-message SIM slot if specified, otherwise fall back to global preference
+                val preferredSlot = sms.simSlot ?: authService.getPreferredSimSlot()
                 val isSmartFailoverEnabled = authService.isSmartFailoverEnabled()
                 val simStatus = simHealthManager.getStatus(preferredSlot)
                 
@@ -99,11 +106,23 @@ class RoutingEngine(
                     }
                 }
                 
-                val selectedSlot = if (isSmartFailoverEnabled) {
-                    simHealthManager.getBestSim(preferredSlot)
-                } else {
-                    preferredSlot
+                // 1. Resolve Target SIM (Priority: Override > Per-Message > App Preference > System Default)
+                val target = when {
+                    overrideSimSlot != null && overrideSimSlot != -1 -> overrideSimSlot
+                    sms.simSlot != -1 -> sms.simSlot
+                    else -> preferredSlot
                 }
+
+                // If target is still 0 but we want universal default first, we force it to -1
+                val selectedSlot = if (target == 0 && preferredSlot == 0) {
+                    // This handles the case where Slot 0 was auto-saved as preference but the user wants "Free"
+                    android.util.Log.d("RoutingEngine", "Auto-correcting SIM 0 to -1 (Universal Default) for Free SMS path")
+                    -1
+                } else {
+                    target
+                }
+
+                android.util.Log.d("RoutingEngine", "Final routing decision: SIM $selectedSlot")
 
                 // Rate Limit & TPS Enforcement
                 if (!rateLimiter.checkAndUpdate(selectedSlot)) {
