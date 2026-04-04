@@ -7,7 +7,7 @@ object ApiConfig {
     // Base URL for the API - change for production
     // Local: http://192.168.2.102:8080/v1  (or use host.docker.internal if in emulator)
     // Production: https://18.153.158.84/api/v1/app
-    var baseUrl: String = "http://192.168.2.102:8080/v1/app"
+    var baseUrl: String = "https://api.conduit.threelions.co.ke/v1"
     
     // Connection timeouts
     const val CONNECT_TIMEOUT_MS = 30_000

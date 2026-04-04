@@ -18,6 +18,19 @@ class QueueViewModel(private val db: EdgeNodeDatabase) : ViewModel() {
 
     var searchQuery by mutableStateOf("")
     var selectedFilter by mutableStateOf(StatusFilter.ALL)
+    
+    var isRefreshing by mutableStateOf(false)
+        private set
+
+    fun refresh() {
+        viewModelScope.launch {
+            isRefreshing = true
+            // Local DB view is always up-to-date, 
+            // but we simulate a sync check for UX feedback.
+            kotlinx.coroutines.delay(1000) 
+            isRefreshing = false
+        }
+    }
 
     private val _messages = db.smsDao().observeQueue()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())

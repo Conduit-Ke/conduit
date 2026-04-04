@@ -11,7 +11,10 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
 
-class LoginViewModel(private val authService: AuthService) : ViewModel() {
+import com.sms.edgenode.data.api.DeviceService
+import android.os.Build
+
+class LoginViewModel(private val authService: AuthService, private val deviceService: DeviceService) : ViewModel() {
 
     var currentStep by mutableStateOf(LoginStep.EMAIL)
         private set
@@ -55,8 +58,29 @@ class LoginViewModel(private val authService: AuthService) : ViewModel() {
                     currentStep = LoginStep.OTP
                     _events.emit(LoginEvent.ShowNotification(response.message ?: "OTP sent", NotificationType.SUCCESS))
                 } else {
-                    authService.fetchUserProfile()
-                    _events.emit(LoginEvent.LoginSuccess)
+                    val profileResult = authService.fetchUserProfile()
+                    if (profileResult.isFailure) {
+                        _events.emit(LoginEvent.TriggerShake)
+                        _events.emit(LoginEvent.ShowNotification("Failed to fetch profile", NotificationType.ERROR))
+                        return@onSuccess
+                    }
+                    
+                    val orgId = authService.getOrganizationId()
+                    if (orgId == -1) {
+                        _events.emit(LoginEvent.TriggerShake)
+                        _events.emit(LoginEvent.ShowNotification("User has no organization", NotificationType.ERROR))
+                        return@onSuccess
+                    }
+                    
+                    val deviceName = Build.MODEL ?: "Android Edge Node"
+                    val regResult = deviceService.register(deviceName, orgId)
+                    
+                    if (regResult.isSuccess) {
+                        _events.emit(LoginEvent.LoginSuccess)
+                    } else {
+                        _events.emit(LoginEvent.TriggerShake)
+                        _events.emit(LoginEvent.ShowNotification("Failed to register device", NotificationType.ERROR))
+                    }
                 }
             }.onFailure { error ->
                 _events.emit(LoginEvent.TriggerShake)
@@ -73,8 +97,29 @@ class LoginViewModel(private val authService: AuthService) : ViewModel() {
                 isLoading = true
                 val result = authService.verifyOtp(uid, otp)
                 result.onSuccess {
-                    authService.fetchUserProfile()
-                    _events.emit(LoginEvent.LoginSuccess)
+                    val profileResult = authService.fetchUserProfile()
+                    if (profileResult.isFailure) {
+                        _events.emit(LoginEvent.TriggerShake)
+                        _events.emit(LoginEvent.ShowNotification("Failed to fetch profile", NotificationType.ERROR))
+                        return@onSuccess
+                    }
+                    
+                    val orgId = authService.getOrganizationId()
+                    if (orgId == -1) {
+                        _events.emit(LoginEvent.TriggerShake)
+                        _events.emit(LoginEvent.ShowNotification("User has no organization", NotificationType.ERROR))
+                        return@onSuccess
+                    }
+                    
+                    val deviceName = Build.MODEL ?: "Android Edge Node"
+                    val regResult = deviceService.register(deviceName, orgId)
+                    
+                    if (regResult.isSuccess) {
+                        _events.emit(LoginEvent.LoginSuccess)
+                    } else {
+                        _events.emit(LoginEvent.TriggerShake)
+                        _events.emit(LoginEvent.ShowNotification("Failed to register device", NotificationType.ERROR))
+                    }
                 }.onFailure { error ->
                     _events.emit(LoginEvent.TriggerShake)
                     _events.emit(LoginEvent.ShowNotification(error.message ?: "Invalid OTP", NotificationType.ERROR))

@@ -205,9 +205,11 @@ class AuthService(private val context: Context) {
                 Result.success(tokenResponse)
             } ?: Result.failure(Exception("Failed to parse token response"))
         } else {
-            // Refresh failed, clear tokens
-            clearTokens()
-            Result.failure(Exception("Token refresh failed"))
+            // Refresh failed, clear tokens ONLY if it's a hard failure (401/403)
+            if (response.code == 401 || response.code == 403) {
+                clearTokens()
+            }
+            Result.failure(Exception("Token refresh failed: ${response.code}"))
         }
     }
     
@@ -247,6 +249,17 @@ class AuthService(private val context: Context) {
      * Check if user is logged in (has valid token).
      */
     fun isLoggedIn(): Boolean {
+        // Logged in if we have an access token (even expired) AND a refresh token
+        // Or if we have a valid access token.
+        val hasAccessToken = getAccessToken() != null
+        val hasRefreshToken = getRefreshToken() != null
+        return hasAccessToken || hasRefreshToken
+    }
+
+    /**
+     * Check if the access token is currently valid.
+     */
+    fun isTokenValid(): Boolean {
         val token = getAccessToken()
         val expiry = prefs.getLong(KEY_TOKEN_EXPIRY, 0)
         return token != null && (expiry == 0L || System.currentTimeMillis() < expiry)

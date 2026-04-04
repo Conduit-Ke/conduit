@@ -3,11 +3,13 @@ package com.sms.edgenode.ui.screens
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.Image
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
@@ -18,8 +20,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.focus.FocusDirection
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -40,6 +48,7 @@ fun LoginScreen(
     val extendedColors = MaterialTheme.colorScheme.extended()
     val topNotification = LocalTopNotificationState.current
     val focusManager = LocalFocusManager.current
+    val emailFocusRequester = remember { FocusRequester() }
     var passwordVisible by remember { mutableStateOf(false) }
 
     // Linear animation - no bouncy
@@ -50,6 +59,7 @@ fun LoginScreen(
     )
 
     LaunchedEffect(Unit) {
+        emailFocusRequester.requestFocus()
         viewModel.events.collect { event ->
             when (event) {
                 is LoginViewModel.LoginEvent.LoginSuccess -> onLogin()
@@ -69,6 +79,9 @@ fun LoginScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
+            .pointerInput(Unit) {
+                detectTapGestures(onTap = { focusManager.clearFocus() })
+            }
     ) {
         Column(
             modifier = Modifier
@@ -85,35 +98,20 @@ fun LoginScreen(
                     .size(100.dp)
                     .scale(logoScale),
                 shape = DesignTokens.CardShape,
-                color = MaterialTheme.colorScheme.primaryContainer,
+                color = MaterialTheme.colorScheme.surface,
                 shadowElevation = 0.dp,
                 tonalElevation = 2.dp
             ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Icon(
-                        Icons.Outlined.CloudQueue,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                        modifier = Modifier.size(48.dp)
+                Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(DesignTokens.Spacing4)) {
+                    Image(
+                        painter = painterResource(id = com.sms.edgenode.R.drawable.app_logo),
+                        contentDescription = "Conduit Logo",
+                        modifier = Modifier.fillMaxSize()
                     )
                 }
             }
 
             Spacer(Modifier.height(DesignTokens.Spacing6))
-
-            Text(
-                "ConduIT",
-                style = MaterialTheme.typography.displayMedium,
-                color = MaterialTheme.colorScheme.onBackground
-            )
-
-            Text(
-                "Edge Node Gateway",
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-
-            Spacer(Modifier.height(48.dp))
 
             // Auth Form
             AnimatedContent(
@@ -154,7 +152,9 @@ fun LoginScreen(
                                 onValueChange = { viewModel.email = it },
                                 label = { Text("Email") },
                                 placeholder = { Text("you@example.com") },
-                                modifier = Modifier.fillMaxWidth(),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .focusRequester(emailFocusRequester),
                                 singleLine = true,
                                 shape = DesignTokens.ButtonShape,
                                 leadingIcon = {
@@ -217,6 +217,20 @@ fun LoginScreen(
                                     unfocusedBorderColor = MaterialTheme.colorScheme.outline
                                 )
                             )
+
+                            val uriHandler = LocalUriHandler.current
+                            TextButton(
+                                onClick = { uriHandler.openUri("https://conduit.threelions.co.ke/forgot-password") },
+                                modifier = Modifier.align(Alignment.End),
+                                contentPadding = PaddingValues(horizontal = DesignTokens.Spacing1)
+                            ) {
+                                Text(
+                                    "Forgot password?",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
 
                             Spacer(Modifier.height(DesignTokens.Spacing6))
 

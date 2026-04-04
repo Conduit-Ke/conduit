@@ -7,6 +7,8 @@ import java.io.BufferedReader
 import java.io.OutputStreamWriter
 import java.net.HttpURLConnection
 import java.net.URL
+import javax.net.ssl.HttpsURLConnection
+import javax.net.ssl.HostnameVerifier
 
 /**
  * Simple HTTP client using HttpURLConnection.
@@ -20,6 +22,7 @@ object HttpClient {
     }
 
     var onUnauthorized: (suspend () -> Boolean)? = null
+    var tokenProvider: (() -> String?)? = null
     
     data class Response(
         val code: Int,
@@ -81,6 +84,12 @@ object HttpClient {
                 val url = URL("${ApiConfig.baseUrl}$endpoint")
                 connection = url.openConnection() as HttpURLConnection
                 
+                if (connection is HttpsURLConnection) {
+                    connection.hostnameVerifier = HostnameVerifier { hostname, _ ->
+                        hostname.endsWith(".threelions.co.ke") || hostname == "threelions.co.ke"
+                    }
+                }
+
                 connection.apply {
                     requestMethod = method
                     connectTimeout = ApiConfig.CONNECT_TIMEOUT_MS
@@ -88,7 +97,8 @@ object HttpClient {
                     setRequestProperty("Content-Type", "application/json")
                     setRequestProperty("Accept", "application/json")
                     
-                    currentToken?.let {
+                    val resolvedToken = token ?: tokenProvider?.invoke()
+                    resolvedToken?.let {
                         setRequestProperty("Authorization", "Bearer $it")
                     }
                     
@@ -111,11 +121,11 @@ object HttpClient {
                         try {
                             android.util.Log.w("HttpClient", "401 Unauthorized for $endpoint. Attempting refresh...")
                             if (onUnauthorized?.invoke() == true) {
-                                android.util.Log.i("HttpClient", "Refresh successful. Retrying $endpoint...")
+                                android.util.Log.i("HttpClient", "Refresh successful. Retrying $endpoint with fresh token...")
                                 connection.disconnect()
-                                // Retry with isRetry=true to prevent further recursion
-                                // Pass token=null so the caller can re-read the refreshed token
-                                return@withContext request(method, endpoint, body, token, isRetry = true)
+                                // Retry with isRetry=true to prevent further recursion.
+                                // Pass null as token so it gets re-fetched via tokenProvider.
+                                return@withContext request(method, endpoint, body, null, isRetry = true)
                             }
                         } finally {
                             isRefreshing.set(false)

@@ -20,7 +20,7 @@
     <application
         android:name=".EdgeNodeApp"
         android:allowBackup="false"
-        android:icon="@drawable/ic_launcher"
+        android:icon="@drawable/app_logo"
         android:label="ConduIT"
         android:supportsRtl="true"
         android:theme="@style/Theme.AppCompat.NoActionBar"

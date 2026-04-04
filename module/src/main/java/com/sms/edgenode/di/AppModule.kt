@@ -71,7 +71,7 @@ val appModule = module {
     single { UssdManager(get()) }
 
     // ViewModels
-    viewModel { LoginViewModel(get()) }
+    viewModel { LoginViewModel(get(), get()) }
     viewModel { HomeViewModel(get(), androidContext(), get()) }
     viewModel { QueueViewModel(get()) }
     viewModel { LogsViewModel(get()) }

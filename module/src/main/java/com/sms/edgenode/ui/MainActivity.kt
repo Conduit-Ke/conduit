@@ -7,6 +7,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.*
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
@@ -15,7 +16,9 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
@@ -108,46 +111,96 @@ fun AppNavigation() {
     val context = androidx.compose.ui.platform.LocalContext.current
     val scope = rememberCoroutineScope()
     
-    var isLoggedIn by remember { mutableStateOf(authService.isLoggedIn()) }
-    var hasSeenOnboarding by remember {
-        mutableStateOf(
-            context.getSharedPreferences("app_prefs", android.content.Context.MODE_PRIVATE)
-                .getBoolean("has_seen_onboarding", false)
-        )
+    var navigationState by remember { mutableStateOf("checking") }
+    
+    val hasSeenOnboarding = remember {
+        context.getSharedPreferences("app_prefs", android.content.Context.MODE_PRIVATE)
+            .getBoolean("has_seen_onboarding", false)
+    }
+
+    LaunchedEffect(Unit) {
+        if (!hasSeenOnboarding) {
+            navigationState = "onboarding"
+            return@LaunchedEffect
+        }
+
+        if (authService.isLoggedIn()) {
+            if (!authService.isTokenValid()) {
+                android.util.Log.i("AppNavigation", "Token expired on start, attempting refresh...")
+                val result = authService.refreshToken()
+                if (result.isSuccess) {
+                    android.util.Log.i("AppNavigation", "Refresh successful, auto-logging in.")
+                    navigationState = "main"
+                } else {
+                    android.util.Log.w("AppNavigation", "Refresh failed, forcing login.")
+                    navigationState = "login"
+                }
+            } else {
+                navigationState = "main"
+            }
+        } else {
+            navigationState = "login"
+        }
     }
 
     AnimatedContent(
-        targetState = when {
-            !hasSeenOnboarding -> "onboarding"
-            !isLoggedIn -> "login"
-            else -> "main"
-        },
+        targetState = navigationState,
         transitionSpec = { 
-            val isForward = initialState == "onboarding" || (initialState == "login" && targetState == "main")
+            val isForward = initialState == "onboarding" || (initialState == "login" && targetState == "main") || (initialState == "checking")
             MaterialMotion.sharedZAxis(forward = isForward) 
         },
         label = "AuthNavigation"
     ) { screen ->
         when (screen) {
+            "checking" -> {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Surface(
+                            modifier = Modifier.size(80.dp),
+                            shape = DesignTokens.CardShape,
+                            color = MaterialTheme.colorScheme.surface,
+                            tonalElevation = 2.dp
+                        ) {
+                            Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(16.dp)) {
+                                Image(
+                                    painter = painterResource(id = com.sms.edgenode.R.drawable.app_logo),
+                                    contentDescription = "Conduit Logo",
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                            }
+                        }
+                        Spacer(Modifier.height(16.dp))
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(24.dp),
+                            strokeWidth = 2.dp,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
+            }
             "onboarding" -> OnboardingScreen(
                 onComplete = {
                     context.getSharedPreferences("app_prefs", android.content.Context.MODE_PRIVATE)
                         .edit()
                         .putBoolean("has_seen_onboarding", true)
                         .apply()
-                    hasSeenOnboarding = true
+                    // Re-calculate navigation state after onboarding
+                    navigationState = if (authService.isLoggedIn()) "main" else "login"
                 },
                 onRequestPermissions = {
                     (context as? MainActivity)?.requestPermissionsIfNeeded()
                 }
             )
-            "login" -> LoginScreen(onLogin = { isLoggedIn = true })
+            "login" -> LoginScreen(onLogin = { navigationState = "main" })
             "main" -> MainApp(onLogout = {
                 scope.launch {
                     authService.logout()
                     deviceService.clear()
                     com.sms.edgenode.service.RoutingService.stop(context)
-                    isLoggedIn = false
+                    navigationState = "login"
                 }
             })
         }

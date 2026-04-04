@@ -66,6 +66,9 @@ class EdgeNodeApp : Application(), KoinComponent {
             val result = authService.refreshToken()
             result.isSuccess
         }
+        com.sms.edgenode.data.api.HttpClient.tokenProvider = {
+            authService.getAccessToken()
+        }
         
         // Start Heartbeat
         healthMonitor.startHeartbeat { snapshot ->
