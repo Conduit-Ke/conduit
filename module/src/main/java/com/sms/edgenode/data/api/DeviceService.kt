@@ -59,7 +59,7 @@ class DeviceService(private val context: Context, private val authService: AuthS
     data class DeviceRegistrationResponse(
         val success: Boolean,
         val message: String? = null,
-        val device: DeviceInfo? = null,
+        val data: DeviceInfo? = null,
         val error: String? = null
     )
     
@@ -124,8 +124,8 @@ class DeviceService(private val context: Context, private val authService: AuthS
         return if (response.success) {
             HttpClient.parseResponse<DeviceRegistrationResponse>(response)?.let { regResponse ->
                 // Store device token securely
-                regResponse.device?.device_token?.let { deviceToken ->
-                    saveDeviceToken(deviceToken, regResponse.device.identifier ?: fiid)
+                regResponse.data?.device_token?.let { deviceToken ->
+                    saveDeviceToken(deviceToken, regResponse.data.identifier ?: fiid)
                 }
                 authService.setOrganizationId(organizationId)
                 Result.success(regResponse)
@@ -155,9 +155,9 @@ class DeviceService(private val context: Context, private val authService: AuthS
         return if (response.success) {
             HttpClient.parseResponse<DeviceRegistrationResponse>(response)?.let { regResponse ->
                 // Restore device session if token provided
-                regResponse.device?.device_token?.let { deviceToken ->
+                regResponse.data?.device_token?.let { deviceToken ->
                     android.util.Log.i("DeviceService", "Restoring device session for: $identifier")
-                    saveDeviceToken(deviceToken, regResponse.device.identifier ?: identifier)
+                    saveDeviceToken(deviceToken, regResponse.data.identifier ?: identifier)
                 }
                 prefs.edit().putBoolean(KEY_IS_REGISTERED, true).putString(KEY_DEVICE_ID, identifier).apply()
                 Result.success(true)
@@ -217,17 +217,29 @@ class DeviceService(private val context: Context, private val authService: AuthS
     /**
      * Clear session token but keep device identity.
      */
-    fun clear() {
+    fun clearToken() {
         prefs.edit().remove(KEY_DEVICE_TOKEN).apply()
+    }
+
+    /**
+     * Deprecated alias for clearToken()
+     */
+    fun clear() = clearToken()
+
+    /**
+     * Clear all device data.
+     */
+    fun clearAll() {
+        prefs.edit().clear().apply()
     }
     
     private fun saveDeviceToken(token: String, identifier: String) {
-        prefs.edit().apply {
-            putString(KEY_DEVICE_TOKEN, token)
-            putString(KEY_DEVICE_ID, identifier)
-            putBoolean(KEY_IS_REGISTERED, true)
-            apply()
-        }
+        prefs.edit()
+            .putString(KEY_DEVICE_TOKEN, token)
+            .putString(KEY_DEVICE_ID, identifier)
+            .putBoolean(KEY_IS_REGISTERED, true)
+            .apply()
+        android.util.Log.i("DeviceService", "Successfully saved device token for identifier: $identifier")
     }
     
     private fun getAppVersion(): String {

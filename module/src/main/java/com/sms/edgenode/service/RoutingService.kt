@@ -78,8 +78,12 @@ class RoutingService : Service() {
             database.smsDao().requeueHeld()
             database.smsDao().recoverStuckReceived(System.currentTimeMillis() - 300000)
 
-            // Reset backoff for stuck QUEUED messages
-            database.smsDao().resetRetries()
+            // Requeue recent failures (last 2 hours) to rescue messages from registration errors
+            val failureThreshold = System.currentTimeMillis() - (2L * 60 * 60 * 1000)
+            val requeued = database.smsDao().requeueRecentFailures(failureThreshold)
+            if (requeued > 0) {
+                android.util.Log.i("RoutingService", "Requeued $requeued failed/expired messages for retry")
+            }
             
             // Promote stale SUBMITTED messages
             val threshold = System.currentTimeMillis() - 60_000L
@@ -126,39 +130,34 @@ class RoutingService : Service() {
     }
 
     private suspend fun restoreDeviceRegistration(orgId: Int) {
-        val isRegisteredLocally = deviceService.isRegistered()
-        val hasToken = deviceService.getDeviceToken() != null
+        var isRegisteredLocally = deviceService.isRegistered()
+        var hasToken = deviceService.getDeviceToken() != null
         android.util.Log.d("RoutingService", "Restoration check: isRegisteredLocally=$isRegisteredLocally, hasToken=$hasToken")
         
-        if (!isRegisteredLocally || !hasToken) {
-            android.util.Log.i("RoutingService", "Device session missing. Restoring...")
-            
-            // Try to restore session if we have a local identifier
-            if (isRegisteredLocally) {
-                val verifyResult = deviceService.verify()
-                if (verifyResult.isSuccess) {
-                    android.util.Log.i("RoutingService", "Device session successfully restored via verify")
-                    return // Session restored, done
-                } else {
-                    val error = verifyResult.exceptionOrNull()
-                    android.util.Log.w("RoutingService", "Session restoration via verify failed: ${error?.message}")
-                    if (error?.message?.contains("403") == true) {
-                        fireSecurityNotification("Organization mismatch detected. Please login again.")
-                        authService.logout()
-                        stopSelf()
-                        return
-                    }
+        // If we have a token, verify it before proceeding
+        if (isRegisteredLocally && hasToken) {
+            val verifyResult = deviceService.verify()
+            if (verifyResult.isFailure) {
+                val error = verifyResult.exceptionOrNull()
+                if (error?.message?.contains("401") == true || error?.message?.contains("token") == true) {
+                    android.util.Log.w("RoutingService", "Saved token is invalid. Clearing for re-registration.")
+                    deviceService.clearToken()
+                    hasToken = false // Force re-registration below
                 }
             }
+        }
+
+        if (!isRegisteredLocally || !hasToken) {
+            android.util.Log.i("RoutingService", "Device session missing or invalid. Restoring...")
             
-            // Fallback to full registration if restoration failed or never registered
+            // Fallback to full registration
             val deviceName = "${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}"
             android.util.Log.d("RoutingService", "Performing full registration for: $deviceName")
             deviceService.register(deviceName, orgId).onFailure { e ->
                 android.util.Log.e("RoutingService", "Full device registration failed: ${e.message}")
             }
         } else {
-            android.util.Log.d("RoutingService", "Device already registered and token present")
+            android.util.Log.d("RoutingService", "Device already registered and token verified")
         }
     }
 
@@ -185,7 +184,7 @@ class RoutingService : Service() {
             isRemoteManaged = true
             val message = if (code == 404) "Device deleted from dashboard." else "Device deactivated from dashboard."
             fireSecurityNotification(message)
-            deviceService.clear()
+            deviceService.clearToken()
             stopSelf()
         }
 

@@ -57,7 +57,14 @@ class HomeViewModel(
                 // If the user manually enabled it but checkServiceRunning is failing (common on Android 14),
                 // we treat it as running if the auth flag says so and it's not explicitly stopped.
                 isServiceRunning = isRunning || (!authService.isServiceDisabledByUser())
-                delay(2000)
+                
+                // Auto-start if not running but not disabled by user
+                if (!isRunning && !authService.isServiceDisabledByUser() && authService.isLoggedIn()) {
+                    android.util.Log.i("HomeViewModel", "Auto-starting RoutingService via init loop")
+                    RoutingService.start(context)
+                }
+                
+                delay(5000)
             }
         }
     }

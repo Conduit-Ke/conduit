@@ -172,8 +172,8 @@ interface SmsDao {
     @Query("UPDATE sms_queue SET status = 'DELIVERED', deliveredAt = :now WHERE status = 'SUBMITTED' AND lastAttemptAt IS NOT NULL AND lastAttemptAt < :threshold")
     suspend fun promoteSubmitted(threshold: Long, now: Long)
 
-    @Query("UPDATE sms_queue SET nextRetryAt = NULL WHERE status = 'QUEUED' AND nextRetryAt IS NOT NULL")
-    suspend fun resetRetries()
+    @Query("UPDATE sms_queue SET status = 'RECEIVED', attempts = 0, nextRetryAt = NULL, failureReason = NULL WHERE status IN ('FAILED', 'EXPIRED') AND receivedAt > :threshold")
+    suspend fun requeueRecentFailures(threshold: Long): Int
 
     @Query("SELECT status || ':' || COUNT(*) FROM sms_queue GROUP BY status")
     suspend fun getStatusSummary(): List<String>
