@@ -517,7 +517,7 @@ fun SettingsScreen(
                     InfoRow(
                         icon = Icons.Outlined.CloudQueue, 
                         label = "Edge Server", 
-                        value = com.sms.edgenode.data.api.ApiConfig.baseUrl.substringBefore("/api").removePrefix("http://").removePrefix("https://")
+                        value = com.sms.edgenode.data.api.ApiConfig.BASE_URL.removePrefix("http://").removePrefix("https://")
                     )
                 }
             }

@@ -26,7 +26,10 @@ class LoginViewModel(private val authService: AuthService, private val deviceSer
     var isLoading by mutableStateOf(false)
         private set
 
-    var userId by mutableStateOf<Int?>(null)
+    /**
+     * In V2, we track the session_id (String/UUID) instead of user_id (Int).
+     */
+    var sessionId by mutableStateOf<String?>(null)
         private set
 
     private val _events = MutableSharedFlow<LoginEvent>()
@@ -53,34 +56,14 @@ class LoginViewModel(private val authService: AuthService, private val deviceSer
             isLoading = true
             val result = authService.login(email, password)
             result.onSuccess { response ->
-                if (response.otp_required) {
-                    userId = response.user_id
+                // V2 API always requires OTP for mobile login
+                if (response.otp_required && response.session_id != null) {
+                    sessionId = response.session_id
                     currentStep = LoginStep.OTP
-                    _events.emit(LoginEvent.ShowNotification(response.message ?: "OTP sent", NotificationType.SUCCESS))
+                    _events.emit(LoginEvent.ShowNotification(response.message ?: "Verification code sent to your email", NotificationType.SUCCESS))
                 } else {
-                    val profileResult = authService.fetchUserProfile()
-                    if (profileResult.isFailure) {
-                        _events.emit(LoginEvent.TriggerShake)
-                        _events.emit(LoginEvent.ShowNotification("Failed to fetch profile", NotificationType.ERROR))
-                        return@onSuccess
-                    }
-                    
-                    val orgId = authService.getOrganizationId()
-                    if (orgId == -1) {
-                        _events.emit(LoginEvent.TriggerShake)
-                        _events.emit(LoginEvent.ShowNotification("User has no organization", NotificationType.ERROR))
-                        return@onSuccess
-                    }
-                    
-                    val deviceName = Build.MODEL ?: "Android Edge Node"
-                    val regResult = deviceService.register(deviceName, orgId)
-                    
-                    if (regResult.isSuccess) {
-                        _events.emit(LoginEvent.LoginSuccess)
-                    } else {
-                        _events.emit(LoginEvent.TriggerShake)
-                        _events.emit(LoginEvent.ShowNotification("Failed to register device", NotificationType.ERROR))
-                    }
+                    // This branch should theoretically not be hit in V2, but we'll handle it for robustness
+                    handlePostAuthFlow()
                 }
             }.onFailure { error ->
                 _events.emit(LoginEvent.TriggerShake)
@@ -91,46 +74,58 @@ class LoginViewModel(private val authService: AuthService, private val deviceSer
     }
 
     fun verifyOtp() {
-        val uid = userId
-        if (uid != null && otp.length == 6) {
+        val sid = sessionId
+        if (sid != null && otp.length == 6) {
             viewModelScope.launch {
                 isLoading = true
-                val result = authService.verifyOtp(uid, otp)
+                val result = authService.verifyOtp(sid, otp)
                 result.onSuccess {
-                    val profileResult = authService.fetchUserProfile()
-                    if (profileResult.isFailure) {
-                        _events.emit(LoginEvent.TriggerShake)
-                        _events.emit(LoginEvent.ShowNotification("Failed to fetch profile", NotificationType.ERROR))
-                        return@onSuccess
-                    }
-                    
-                    val orgId = authService.getOrganizationId()
-                    if (orgId == -1) {
-                        _events.emit(LoginEvent.TriggerShake)
-                        _events.emit(LoginEvent.ShowNotification("User has no organization", NotificationType.ERROR))
-                        return@onSuccess
-                    }
-                    
-                    val deviceName = Build.MODEL ?: "Android Edge Node"
-                    val regResult = deviceService.register(deviceName, orgId)
-                    
-                    if (regResult.isSuccess) {
-                        _events.emit(LoginEvent.LoginSuccess)
-                    } else {
-                        _events.emit(LoginEvent.TriggerShake)
-                        _events.emit(LoginEvent.ShowNotification("Failed to register device", NotificationType.ERROR))
-                    }
+                    handlePostAuthFlow()
                 }.onFailure { error ->
                     _events.emit(LoginEvent.TriggerShake)
-                    _events.emit(LoginEvent.ShowNotification(error.message ?: "Invalid OTP", NotificationType.ERROR))
+                    _events.emit(LoginEvent.ShowNotification(error.message ?: "Invalid code", NotificationType.ERROR))
                 }
                 isLoading = false
             }
         } else {
             viewModelScope.launch {
                 _events.emit(LoginEvent.TriggerShake)
-                _events.emit(LoginEvent.ShowNotification("Enter valid OTP", NotificationType.ERROR))
+                _events.emit(LoginEvent.ShowNotification("Enter valid 6-digit code", NotificationType.ERROR))
             }
+        }
+    }
+
+    /**
+     * Handles the flow after successful authentication (OTP verified).
+     * Fetches user profile and registers the device.
+     */
+    private suspend fun handlePostAuthFlow() {
+        // 1. Fetch user profile to ensure we have org context and fresh metadata
+        val profileResult = authService.fetchUserProfile()
+        if (profileResult.isFailure) {
+            _events.emit(LoginEvent.TriggerShake)
+            _events.emit(LoginEvent.ShowNotification("Failed to fetch user profile", NotificationType.ERROR))
+            return
+        }
+        
+        val orgId = authService.getOrganizationId()
+        if (orgId == -1L) {
+            _events.emit(LoginEvent.TriggerShake)
+            _events.emit(LoginEvent.ShowNotification("User has no associated organization", NotificationType.ERROR))
+            return
+        }
+        
+        // 2. Register this device as an Edge Node
+        // V2 uses the hardware ANDROID_ID as device_id and JWT for auth.
+        val deviceName = "${Build.MANUFACTURER} ${Build.MODEL}"
+        val regResult = deviceService.register(deviceName, orgId)
+        
+        if (regResult.isSuccess) {
+            _events.emit(LoginEvent.LoginSuccess)
+        } else {
+            _events.emit(LoginEvent.TriggerShake)
+            val error = regResult.exceptionOrNull()?.message ?: "Device registration failed"
+            _events.emit(LoginEvent.ShowNotification(error, NotificationType.ERROR))
         }
     }
 }

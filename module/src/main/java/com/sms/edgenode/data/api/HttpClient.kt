@@ -1,6 +1,9 @@
 package com.sms.edgenode.data.api
 
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.decodeFromString
 import java.io.BufferedReader
@@ -11,8 +14,8 @@ import javax.net.ssl.HttpsURLConnection
 import javax.net.ssl.HostnameVerifier
 
 /**
- * Simple HTTP client using HttpURLConnection.
- * No external dependencies required.
+ * HTTP client using HttpURLConnection.
+ * Supports the V2 API response envelope: { status_code, result: { data: T }, meta }
  */
 object HttpClient {
     
@@ -66,7 +69,15 @@ object HttpClient {
     ): Response = request("PUT", endpoint, json.encodeToString(body), token)
 
     /**
-     * Generic HTTP request.
+     * DELETE request.
+     */
+    suspend fun delete(
+        endpoint: String,
+        token: String? = null
+    ): Response = request("DELETE", endpoint, null, token)
+
+    /**
+     * Generic HTTP request with auto-refresh on 401.
      */
     private var isRefreshing = java.util.concurrent.atomic.AtomicBoolean(false)
 
@@ -81,14 +92,11 @@ object HttpClient {
             var currentToken = token
             var connection: HttpURLConnection? = null
             try {
-                val url = URL("${ApiConfig.baseUrl}$endpoint")
+                val url = URL(if (endpoint.startsWith("http")) endpoint else ApiConfig.BASE_URL + endpoint)
                 connection = url.openConnection() as HttpURLConnection
                 
-                if (connection is HttpsURLConnection) {
-                    connection.hostnameVerifier = HostnameVerifier { hostname, _ ->
-                        hostname.endsWith(".threelions.co.ke") || hostname == "threelions.co.ke"
-                    }
-                }
+                // Use default SSL hostname verification — TLS handles trust.
+                // No custom HostnameVerifier needed for production.
 
                 connection.apply {
                     requestMethod = method
@@ -115,7 +123,7 @@ object HttpClient {
                 
                 // Handle 401 Unauthorized with auto-refresh
                 // Guard: don't retry auth endpoints, don't recurse, and use atomic lock
-                val isAuthEndpoint = endpoint.contains("/auth/")
+                val isAuthEndpoint = endpoint.startsWith("/mobile/")
                 if (responseCode == 401 && !isRetry && !isAuthEndpoint && onUnauthorized != null) {
                     if (isRefreshing.compareAndSet(false, true)) {
                         try {
@@ -162,7 +170,35 @@ object HttpClient {
     }
     
     /**
-     * Parse JSON response to data class.
+     * Parse a V2 API response envelope.
+     *
+     * V2 envelope shape:
+     * ```json
+     * { "status_code": 200, "result": { "data": <T> }, "meta": { ... } }
+     * ```
+     *
+     * This method extracts `result.data` and deserializes it as T.
+     */
+    inline fun <reified T> parseV2Response(response: Response): T? {
+        if (!response.success || response.body.isBlank()) return null
+        return try {
+            val root = json.parseToJsonElement(response.body).jsonObject
+            val result = root["result"]?.jsonObject ?: return null
+            val data = result["data"] ?: return null
+            json.decodeFromString<T>(data.toString())
+        } catch (e: Exception) {
+            android.util.Log.e("HttpClient", "V2 parse failed, falling back to direct parse", e)
+            // Fallback: try parsing the body directly (for endpoints that may not wrap)
+            try {
+                json.decodeFromString<T>(response.body)
+            } catch (e2: Exception) {
+                null
+            }
+        }
+    }
+    
+    /**
+     * Parse JSON response body directly to data class (legacy V1 compat / simple payloads).
      */
     inline fun <reified T> parseResponse(response: Response): T? {
         return if (response.success && response.body.isNotBlank()) {

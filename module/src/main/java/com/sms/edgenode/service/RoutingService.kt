@@ -65,7 +65,7 @@ class RoutingService : Service() {
             val orgId = authService.getOrganizationId()
             android.util.Log.d("RoutingService", "Current organizationId: $orgId")
             
-            if (orgId != -1) {
+            if (orgId != -1L) {
                 restoreDeviceRegistration(orgId)
             } else {
                 android.util.Log.w("RoutingService", "No organizationId found, skipping restoration")
@@ -101,7 +101,6 @@ class RoutingService : Service() {
 
     private fun startProcessingLoops() {
         val preferredSlot = authService.getPreferredSimSlot()
-        val smartFailover = authService.isSmartFailoverEnabled()
         
         // Slot -1 means "Default/Any". 
         // We force -1 if it's currently 0 to ensure we use the system default (often free) as requested.
@@ -120,44 +119,30 @@ class RoutingService : Service() {
                 processingJobs[slot] = scope.launch { processQueue(slot) }
             }
         }
+    }
 
-        for (slot in slotsToStart) {
-            if (processingJobs[slot]?.isActive != true) {
-                android.util.Log.d("RoutingService", "Starting processQueue loop for SIM slot $slot")
-                processingJobs[slot] = scope.launch { processQueue(slot) }
+    private suspend fun restoreDeviceRegistration(orgId: Long) {
+        val isRegisteredLocally = deviceService.isRegistered()
+        android.util.Log.d("RoutingService", "Restoration check: isRegisteredLocally=$isRegisteredLocally")
+        
+        if (isRegisteredLocally) {
+            val verifyResult = deviceService.verify()
+            if (verifyResult.isFailure) {
+                android.util.Log.w("RoutingService", "Device session invalid on server. Re-registering...")
+                performRegistration(orgId)
+            } else {
+                android.util.Log.d("RoutingService", "Device already registered and verified")
             }
+        } else {
+            performRegistration(orgId)
         }
     }
 
-    private suspend fun restoreDeviceRegistration(orgId: Int) {
-        var isRegisteredLocally = deviceService.isRegistered()
-        var hasToken = deviceService.getDeviceToken() != null
-        android.util.Log.d("RoutingService", "Restoration check: isRegisteredLocally=$isRegisteredLocally, hasToken=$hasToken")
-        
-        // If we have a token, verify it before proceeding
-        if (isRegisteredLocally && hasToken) {
-            val verifyResult = deviceService.verify()
-            if (verifyResult.isFailure) {
-                val error = verifyResult.exceptionOrNull()
-                if (error?.message?.contains("401") == true || error?.message?.contains("token") == true) {
-                    android.util.Log.w("RoutingService", "Saved token is invalid. Clearing for re-registration.")
-                    deviceService.clearToken()
-                    hasToken = false // Force re-registration below
-                }
-            }
-        }
-
-        if (!isRegisteredLocally || !hasToken) {
-            android.util.Log.i("RoutingService", "Device session missing or invalid. Restoring...")
-            
-            // Fallback to full registration
-            val deviceName = "${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}"
-            android.util.Log.d("RoutingService", "Performing full registration for: $deviceName")
-            deviceService.register(deviceName, orgId).onFailure { e ->
-                android.util.Log.e("RoutingService", "Full device registration failed: ${e.message}")
-            }
-        } else {
-            android.util.Log.d("RoutingService", "Device already registered and token verified")
+    private suspend fun performRegistration(orgId: Long) {
+        val deviceName = "${Build.MANUFACTURER} ${Build.MODEL}"
+        android.util.Log.i("RoutingService", "Performing full registration for: $deviceName")
+        deviceService.register(deviceName, orgId).onFailure { e ->
+            android.util.Log.e("RoutingService", "Device registration failed: ${e.message}")
         }
     }
 
@@ -173,18 +158,15 @@ class RoutingService : Service() {
             nodeId = nodeId,
             overrideSimSlot = simSlot
         )
-        // Override engine's SIM selection to anchor it to this loop's slot
-        // Or keep it dynamic if we want the engine to still be "smart".
-        // For now, let's keep it dynamic but allow the engine to know which loop it is in.
 
         var isRemoteManaged = false
         engine.onRemoteManagement = { code -> 
-            // ... (keep existing implementation)
             android.util.Log.e("RoutingService", "Remote management action: $code")
             isRemoteManaged = true
             val message = if (code == 404) "Device deleted from dashboard." else "Device deactivated from dashboard."
             fireSecurityNotification(message)
-            deviceService.clearToken()
+            // In V2, we clear the entire registration if remote deactivation occurs
+            deviceService.clearRegistration()
             stopSelf()
         }
 
@@ -200,10 +182,8 @@ class RoutingService : Service() {
                         logQueueSummary()
                     }
                     
-                    // Reactive wait: delay for up to 5s, but wake up immediately if signaled
                     withTimeoutOrNull(5000) {
                         com.sms.edgenode.service.QueueSignal.signal.collect {
-                            // Signal received, break timeout and continue loop
                             return@collect
                         }
                     }
@@ -211,7 +191,6 @@ class RoutingService : Service() {
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                // ... (keep existing error handling)
                 com.sms.edgenode.observability.CrashReporter.logError("Processing error", e)
                 android.util.Log.e("RoutingService", "processNext error: ${e.message}", e)
                 database.auditLogDao().insert(
@@ -231,10 +210,6 @@ class RoutingService : Service() {
         try {
             val summary = database.smsDao().getStatusSummary()
             android.util.Log.d("RoutingService", "Queue status: $summary")
-            val stuck = database.smsDao().getStuckMessages()
-            if (stuck.isNotEmpty()) {
-                android.util.Log.w("RoutingService", "Non-terminal messages: $stuck")
-            }
         } catch (e: Exception) {
             android.util.Log.e("RoutingService", "Diag query failed: ${e.message}")
         }
@@ -245,7 +220,6 @@ class RoutingService : Service() {
         while (scope.isActive) {
             try {
                 syncPendingStatus(database, smsApiService)
-                // Wait for more work or 2 seconds
                 withTimeoutOrNull(2000) {
                     com.sms.edgenode.service.QueueSignal.signal.collect { }
                 }
@@ -301,7 +275,7 @@ class RoutingService : Service() {
         val batch = database.pendingStatusDao().getNextBatch(50)
         if (batch.isEmpty()) return
 
-        android.util.Log.d("RoutingService", "Syncing ${batch.size} status updates to API")
+        android.util.Log.d("RoutingService", "Syncing ${batch.size} status updates to V2 API")
         
         val updates = batch.map {
             com.sms.edgenode.data.api.SmsApiService.StatusUpdate(
@@ -316,7 +290,8 @@ class RoutingService : Service() {
             )
         }
 
-        val result = smsApiService.submitStatusBatch(updates)
+        // Use the legacy bridge method in SmsApiService to handle V1 -> V2 mapping
+        val result = smsApiService.submitStatusBatchLegacy(updates)
         if (result.isSuccess) {
             database.pendingStatusDao().deleteBatch(batch.map { it.id })
         } else {

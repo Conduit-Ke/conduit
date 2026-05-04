@@ -50,6 +50,7 @@ class SmsReceiver : BroadcastReceiver(), KoinComponent {
         val simSlot = com.sms.edgenode.sender.SimDetector.getDefaultSmsSimSlot(context)
         
         val isCarrier = isCarrierMessage(sender, body)
+        val shouldForward = isCarrier || deviceService.shouldForward(sender, body)
         
         val entity = com.sms.edgenode.data.db.SmsEntity(
             contentFingerprint = hash,
@@ -58,7 +59,11 @@ class SmsReceiver : BroadcastReceiver(), KoinComponent {
             body = body,
             receivedAt = System.currentTimeMillis(),
             simSlot = simSlot,
-            status = if (isCarrier) com.sms.edgenode.data.db.SmsStatus.SYSTEM else com.sms.edgenode.data.db.SmsStatus.RECEIVED
+            status = when {
+                isCarrier -> com.sms.edgenode.data.db.SmsStatus.SYSTEM
+                shouldForward -> com.sms.edgenode.data.db.SmsStatus.RECEIVED
+                else -> com.sms.edgenode.data.db.SmsStatus.IGNORED
+            }
         )
 
         val entityId = db.smsDao().insert(entity)
@@ -81,50 +86,34 @@ class SmsReceiver : BroadcastReceiver(), KoinComponent {
     private suspend fun handleCarrierLogic(body: String, slot: Int) {
         val lowercaseBody = body.lowercase()
         
-        // 1. Parse Balance (KES) - Refined regex to avoid loan/debt messages
+        // 1. Parse Balance (KES)
         val kesRegex = Regex("""(?:bal|balance|new balance|acc bal|account balance)\s*(?:is|:)?\s*(?:kes|shillings)?\s*(\d+(?:\.\d+)?)""")
         val match = kesRegex.find(lowercaseBody)
         if (match != null) {
             val balance = match.groupValues[1].toDoubleOrNull()
             if (balance != null) {
-                deviceService.reportCarrierMetric("AIRTIME_BALANCE", balance.toString())
+                // In V2, metrics are extracted on the server from the ingress payload.
+                // We no longer report carrier metrics via a separate API call.
+                android.util.Log.d("SmsReceiver", "Carrier balance detected: $balance. Server will extract this from ingress.")
                 
-                // Trigger Refill if below threshold and not recently requested (20 min cool-off)
+                // Trigger Refill Logic (Local only in V2, notifying dashboard via audit log)
                 val threshold = authService.getRefillThreshold()
                 val lastRequest = authService.getLastRefillRequestTime()
                 val now = System.currentTimeMillis()
                 val coolOffMs = 20 * 60 * 1000L // 20 minutes
                 
                 if (balance < threshold && (now - lastRequest) > coolOffMs) {
-                    android.util.Log.w("SmsReceiver", "Low balance detected ($balance < $threshold). Triggering refill request...")
-                    
-                    // Mark request time immediately to prevent race conditions
+                    android.util.Log.w("SmsReceiver", "Low balance detected ($balance < $threshold).")
                     authService.setLastRefillRequestTime(now)
                     
-                    val result = deviceService.requestRefill(threshold)
-                    if (result.isFailure) {
-                        val error = result.exceptionOrNull()?.message ?: "Unknown Error"
-                        val isInsufficient = error.contains("402")
-                        
-                        // If it fails with something other than insufficient funds (e.g. timeout), 
-                        // we reset the cool-off so it can try again on the next SMS
-                        if (!isInsufficient) {
-                            authService.setLastRefillRequestTime(0L)
-                        }
-
-                        db.auditLogDao().insert(
-                            com.sms.edgenode.data.db.AuditLogEntity(
-                                timestamp = System.currentTimeMillis(),
-                                eventType = "REFILL_ERROR",
-                                smsId = null,
-                                details = if (isInsufficient) 
-                                    "Refill Blocked: Organization backend balance is empty. Deposit float to resume autonomous top-ups."
-                                    else "Autonomous refill failed: $error"
-                            )
+                    db.auditLogDao().insert(
+                        com.sms.edgenode.data.db.AuditLogEntity(
+                            timestamp = System.currentTimeMillis(),
+                            eventType = "REFILL_NEEDED",
+                            smsId = null,
+                            details = "Low balance detected: $balance. Please top up via Dashboard."
                         )
-                    }
-                } else if (balance < threshold) {
-                    android.util.Log.d("SmsReceiver", "Balance $balance is below threshold $threshold, but cool-off is active. Skipping request.")
+                    )
                 }
             }
         }

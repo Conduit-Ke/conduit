@@ -25,11 +25,25 @@ class FcmService : FirebaseMessagingService() {
     override fun onMessageReceived(message: RemoteMessage) {
         val data = message.data
         val type = data["type"] ?: return
-        val signature = data["signature"]
-        val timestamp = data["timestamp"] ?: ""
-        val encryptedPayload = data["encrypted_payload"]
+        val rawPayload = data["payload"]
+        if (rawPayload == null) {
+            android.util.Log.e("FcmService", "Missing 'payload' key in FCM data")
+            return
+        }
+
+        val payloadJson = try {
+            org.json.JSONObject(rawPayload)
+        } catch (e: Exception) {
+            android.util.Log.e("FcmService", "Failed to parse payload JSON: ${e.message}")
+            return
+        }
+
+        val signature = payloadJson.optString("sig", null)
+        val timestamp = payloadJson.optString("ts", "")
+        val encryptedPayload = payloadJson.optString("enc_payload", null)
+        val idOrCommand = payloadJson.optString("server_message_id", payloadJson.optString("command", ""))
         
-        android.util.Log.d("FcmService", "Received message: type=$type, id=${data["server_message_id"] ?: data["command"]}, encrypted=${encryptedPayload != null}")
+        android.util.Log.d("FcmService", "Received message: type=$type, id=$idOrCommand, encrypted=${encryptedPayload != null}")
 
 
         // 1. Verify Layered Security if signature present
@@ -41,7 +55,6 @@ class FcmService : FirebaseMessagingService() {
             }
             
             // HMAC over Envelope (Type + ID/Command + Timestamp + Ciphertext)
-            val idOrCommand = data["server_message_id"] ?: data["command"] ?: ""
             val signaturePayload = type + idOrCommand + timestamp + encryptedPayload
             
             if (!SignatureVerifier.verify(signaturePayload, signature, secret)) {
@@ -64,6 +77,12 @@ class FcmService : FirebaseMessagingService() {
             
             // Map decrypted keys back to a mutable map for existing handlers
             val fullData = data.toMutableMap()
+            
+            // Inject extracted metadata so handlers can access server_message_id, command, ts, etc.
+            fullData["server_message_id"] = idOrCommand
+            fullData["command"] = idOrCommand
+            fullData["timestamp"] = timestamp
+            
             innerData.keys().forEach { key ->
                 fullData[key] = innerData.optString(key)
             }

@@ -70,11 +70,14 @@ class EdgeNodeApp : Application(), KoinComponent {
             authService.getAccessToken()
         }
         
-        // Start Heartbeat
+        // Start Heartbeat (Ping)
         healthMonitor.startHeartbeat { snapshot ->
             MainScope().launch {
                 deviceService.sendHeartbeat(snapshot).onSuccess { response ->
-                    response.quota?.let { smsApiService.updateQuota(it) }
+                    // V2 ping response is minimal. Quota tracking is now out-of-band.
+                    android.util.Log.d("EdgeNodeApp", "Heartbeat acknowledged by server")
+                }.onFailure { e ->
+                    android.util.Log.e("EdgeNodeApp", "Heartbeat failed: ${e.message}")
                 }
             }
         }

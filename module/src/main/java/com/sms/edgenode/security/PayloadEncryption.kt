@@ -54,25 +54,39 @@ object PayloadEncryption {
     fun decrypt(encryptedPayload: String): String? {
         val key = encryptionKey ?: return null
         
-        if (!encryptedPayload.startsWith("v1:openssl:")) return null
-
         return try {
-            val parts = encryptedPayload.split(":")
-            if (parts.size != 5) return null
+            if (encryptedPayload.startsWith("v2:rust-aes-gcm:")) {
+                val parts = encryptedPayload.split(":")
+                if (parts.size != 4) return null
 
-            val iv = Base64.decode(parts[2], Base64.NO_WRAP)
-            val tag = Base64.decode(parts[3], Base64.NO_WRAP)
-            val ciphertext = Base64.decode(parts[4], Base64.NO_WRAP)
+                val iv = Base64.decode(parts[2], Base64.DEFAULT)
+                val combined = Base64.decode(parts[3], Base64.DEFAULT)
 
-            val cipher = Cipher.getInstance(ALGORITHM)
-            val spec = GCMParameterSpec(TAG_LENGTH_BITS, iv)
-            cipher.init(Cipher.DECRYPT_MODE, SecretKeySpec(key, "AES"), spec)
+                val cipher = Cipher.getInstance(ALGORITHM)
+                val spec = GCMParameterSpec(TAG_LENGTH_BITS, iv)
+                cipher.init(Cipher.DECRYPT_MODE, SecretKeySpec(key, "AES"), spec)
 
-            val combined = ByteArray(ciphertext.size + tag.size)
-            System.arraycopy(ciphertext, 0, combined, 0, ciphertext.size)
-            System.arraycopy(tag, 0, combined, ciphertext.size, tag.size)
+                String(cipher.doFinal(combined), Charsets.UTF_8)
+            } else if (encryptedPayload.startsWith("v1:openssl:")) {
+                val parts = encryptedPayload.split(":")
+                if (parts.size != 5) return null
 
-            String(cipher.doFinal(combined), Charsets.UTF_8)
+                val iv = Base64.decode(parts[2], Base64.NO_WRAP)
+                val tag = Base64.decode(parts[3], Base64.NO_WRAP)
+                val ciphertext = Base64.decode(parts[4], Base64.NO_WRAP)
+
+                val cipher = Cipher.getInstance(ALGORITHM)
+                val spec = GCMParameterSpec(TAG_LENGTH_BITS, iv)
+                cipher.init(Cipher.DECRYPT_MODE, SecretKeySpec(key, "AES"), spec)
+
+                val combined = ByteArray(ciphertext.size + tag.size)
+                System.arraycopy(ciphertext, 0, combined, 0, ciphertext.size)
+                System.arraycopy(tag, 0, combined, ciphertext.size, tag.size)
+
+                String(cipher.doFinal(combined), Charsets.UTF_8)
+            } else {
+                null
+            }
         } catch (e: Exception) {
             android.util.Log.e("PayloadEncryption", "Decryption failed: ${e.message}")
             null

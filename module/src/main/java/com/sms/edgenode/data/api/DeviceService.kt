@@ -12,12 +12,25 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 
 /**
- * Device registration and management service.
+ * Device registration and management service for V2 API.
+ *
+ * V2 changes:
+ *   - No separate device_token. All requests use the user's JWT access_token.
+ *   - Device registration via POST /v2/network/devices (returns public_id).
+ *   - Heartbeat via POST /v2/system/devices/ping (flat JSON body).
+ *   - Device identity is the hardware ANDROID_ID, sent as `device_id` in payloads.
  */
 class DeviceService(private val context: Context, private val authService: AuthService) {
 
     @Serializable
-    data class HeartbeatRequest(
+    data class DevicePingRequest(
+        val device_id: String,
+        val status: String,
+        val metadata: DevicePingMetadata? = null
+    )
+
+    @Serializable
+    data class DevicePingMetadata(
         val fcm_token: String? = null,
         val battery_percentage: Int? = null,
         val is_charging: Boolean? = null,
@@ -25,14 +38,23 @@ class DeviceService(private val context: Context, private val authService: AuthS
         val airplane_mode: Boolean? = null,
         val sim_statuses: List<DeviceHealthMonitor.SimStatus>? = null,
         val memory_usage: DeviceHealthMonitor.MemoryInfo? = null,
-        val uptime_ms: Long? = null
+        val uptime_ms: Long? = null,
+        val os_version: String? = null,
+        val app_version: String? = null
     )
-    
+
     @Serializable
-    data class HeartbeatResponse(
+    data class DevicePingResponse(
+        val acknowledged: Boolean? = null,
         val server_time: Long? = null,
-        val config_version: Int? = null,
-        val quota: SmsApiService.QuotaInfo? = null
+        val config: DeviceConfig? = null
+    )
+
+    @Serializable
+    data class DeviceConfig(
+        val keywords: List<String> = emptyList(),
+        val active_senders: List<String> = emptyList(),
+        val control_security_key: String? = null
     )
 
     private val prefs: SharedPreferences by lazy {
@@ -50,28 +72,33 @@ class DeviceService(private val context: Context, private val authService: AuthS
     }
     
     companion object {
-        private const val KEY_DEVICE_TOKEN = "device_token"
+        private const val KEY_DEVICE_PUBLIC_ID = "device_public_id"
         private const val KEY_DEVICE_ID = "device_identifier"
         private const val KEY_IS_REGISTERED = "is_registered"
     }
     
+    /**
+     * V2 Device model — mirrors the server's Device struct.
+     */
     @Serializable
-    data class DeviceRegistrationResponse(
-        val success: Boolean,
-        val message: String? = null,
-        val data: DeviceInfo? = null,
-        val error: String? = null
-    )
-    
-    @Serializable
-    data class DeviceInfo(
-        val id: Int? = null,
-        val identifier: String? = null,
+    data class Device(
+        val id: Long? = null,
+        val public_id: String? = null,
+        val organization_id: Long? = null,
+        val device_id: String? = null,
         val name: String? = null,
-        val platform: String? = null,
-        val is_active: Boolean? = null,
-        val organization_id: Int? = null,
-        val device_token: String? = null
+        val phone_number: String? = null,
+        val status: String? = null
+    )
+
+    /**
+     * V2 Create device request.
+     */
+    @Serializable
+    data class CreateDeviceRequest(
+        val device_id: String,
+        val name: String? = null,
+        val phone_number: String? = null
     )
     
     /**
@@ -85,83 +112,76 @@ class DeviceService(private val context: Context, private val authService: AuthS
     }
     
     /**
-     * Register this device with the API.
+     * Register this device with the V2 API.
+     * POST /v2/network/devices — authenticated by user JWT.
      */
     suspend fun register(
         deviceName: String,
-        organizationId: Int
-    ): Result<DeviceRegistrationResponse> {
+        organizationId: Long
+    ): Result<Device> {
         val token = authService.getAccessToken() 
             ?: return Result.failure(Exception("Not authenticated"))
         
-        val fiid = getHardwareIdentifier()
-        val fcmToken = try { 
-            FirebaseMessaging.getInstance().token.await().also {
-                android.util.Log.i("DeviceService", "Successfully retrieved FCM token during register: $it")
-            }
-        } catch (e: Exception) { 
-            android.util.Log.e("DeviceService", "Failed to retrieve FCM token during register", e)
-            null 
-        }
-        
-        val params = mutableMapOf(
-            "fiid" to fiid,
-            "name" to deviceName,
-            "organization_id" to organizationId.toString(),
-            "platform" to "android",
-            "os_version" to Build.VERSION.RELEASE,
-            "app_version" to getAppVersion()
+        val deviceId = getHardwareIdentifier()
+
+        val request = CreateDeviceRequest(
+            device_id = deviceId,
+            name = deviceName,
+            phone_number = null  // Phone number can be updated later
         )
-        
-        fcmToken?.let { params["fcm_token"] = it }
-        
-        val response = HttpClient.post(
-            ApiConfig.Endpoints.DEVICE_REGISTER,
-            params,
+
+        val jsonBody = HttpClient.json.encodeToString(request)
+        val response = HttpClient.postJson(
+            ApiConfig.Endpoints.DEVICE_CREATE,
+            jsonBody,
             token
         )
         
         return if (response.success) {
-            HttpClient.parseResponse<DeviceRegistrationResponse>(response)?.let { regResponse ->
-                // Store device token securely
-                regResponse.data?.device_token?.let { deviceToken ->
-                    saveDeviceToken(deviceToken, regResponse.data.identifier ?: fiid)
+            HttpClient.parseV2Response<Device>(response)?.let { device ->
+                // Store device public_id and identifier
+                device.public_id?.let { pubId ->
+                    saveDeviceInfo(pubId, deviceId)
                 }
                 authService.setOrganizationId(organizationId)
-                Result.success(regResponse)
-            } ?: Result.failure(Exception("Failed to parse registration response"))
+                Result.success(device)
+            } ?: Result.failure(Exception("Failed to parse device registration response"))
         } else {
-            val error = try {
-                kotlinx.serialization.json.Json { ignoreUnknownKeys = true }
-                    .decodeFromString<DeviceRegistrationResponse>(response.body)
+            val errorMsg = try {
+                val root = HttpClient.json.parseToJsonElement(response.body)
+                root.jsonObject?.get("error")?.jsonObject?.get("message")?.jsonPrimitive?.content
             } catch (e: Exception) { null }
-            Result.failure(Exception(error?.message ?: error?.error ?: "Registration failed: ${response.code}"))
+            Result.failure(Exception(errorMsg ?: "Registration failed: ${response.code}"))
         }
     }
     
     /**
      * Verify if the device is already registered on the server.
+     * Lists devices and checks if our device_id exists.
      */
     suspend fun verify(): Result<Boolean> {
         val token = authService.getAccessToken() ?: return Result.failure(Exception("Not authenticated"))
         val identifier = getHardwareIdentifier()
         android.util.Log.d("DeviceService", "Verifying device identity: $identifier")
         
-        // Correct endpoint: /api/devices/{identifier}/verify
-        val endpoint = ApiConfig.Endpoints.DEVICE_VERIFY.replace("{identifier}", identifier)
-        val response = HttpClient.get(endpoint, token)
+        val response = HttpClient.get(ApiConfig.Endpoints.DEVICE_LIST, token)
         android.util.Log.d("DeviceService", "Verify response code: ${response.code}")
         
         return if (response.success) {
-            HttpClient.parseResponse<DeviceRegistrationResponse>(response)?.let { regResponse ->
-                // Restore device session if token provided
-                regResponse.data?.device_token?.let { deviceToken ->
-                    android.util.Log.i("DeviceService", "Restoring device session for: $identifier")
-                    saveDeviceToken(deviceToken, regResponse.data.identifier ?: identifier)
+            HttpClient.parseV2Response<List<Device>>(response)?.let { devices ->
+                val myDevice = devices.find { it.device_id == identifier }
+                if (myDevice != null) {
+                    // Restore device session
+                    myDevice.public_id?.let { pubId ->
+                        android.util.Log.i("DeviceService", "Restoring device session for: $identifier")
+                        saveDeviceInfo(pubId, identifier)
+                    }
+                    Result.success(true)
+                } else {
+                    android.util.Log.w("DeviceService", "Device $identifier not found in org device list")
+                    Result.failure(Exception("Device not registered on server"))
                 }
-                prefs.edit().putBoolean(KEY_IS_REGISTERED, true).putString(KEY_DEVICE_ID, identifier).apply()
-                Result.success(true)
-            } ?: Result.success(true) // Fallback if no token but 200
+            } ?: Result.success(false)
         } else {
             android.util.Log.w("DeviceService", "Verification failed: ${response.code}")
             Result.failure(Exception("Verification failed: ${response.code}"))
@@ -169,11 +189,13 @@ class DeviceService(private val context: Context, private val authService: AuthS
     }
 
     /**
-     * Send heartbeat to API with health data.
+     * Send heartbeat to V2 API with health data.
+     * POST /v2/system/devices/ping — authenticated by user JWT.
      */
-    suspend fun sendHeartbeat(snapshot: DeviceHealthMonitor.HealthSnapshot? = null): Result<HeartbeatResponse> {
-        val deviceToken = getDeviceToken() ?: return Result.failure(Exception("Device not registered"))
+    suspend fun sendHeartbeat(snapshot: DeviceHealthMonitor.HealthSnapshot? = null): Result<DevicePingResponse> {
+        val token = authService.getAccessToken() ?: return Result.failure(Exception("Not authenticated"))
         val deviceId = getDeviceIdentifier() ?: return Result.failure(Exception("No device identifier"))
+        
         val fcmToken = try { 
             FirebaseMessaging.getInstance().token.await().also {
                 android.util.Log.i("DeviceService", "Successfully retrieved FCM token during heartbeat")
@@ -182,49 +204,109 @@ class DeviceService(private val context: Context, private val authService: AuthS
             android.util.Log.e("DeviceService", "Failed to retrieve FCM token during heartbeat", e)
             null 
         }
-        
-        val endpoint = ApiConfig.Endpoints.DEVICE_HEARTBEAT.replace("{identifier}", deviceId)
-        
-        val request = HeartbeatRequest(
-            fcm_token = fcmToken,
-            battery_percentage = snapshot?.battery?.percentage,
-            is_charging = snapshot?.battery?.isCharging,
-            has_connectivity = snapshot?.hasConnectivity,
-            airplane_mode = snapshot?.airplaneModeOn,
-            sim_statuses = snapshot?.simStatuses,
-            memory_usage = snapshot?.memoryUsage,
-            uptime_ms = snapshot?.uptimeMs
+
+        val request = DevicePingRequest(
+            device_id = deviceId,
+            status = "online",
+            metadata = DevicePingMetadata(
+                fcm_token = fcmToken,
+                battery_percentage = snapshot?.battery?.percentage,
+                is_charging = snapshot?.battery?.isCharging,
+                has_connectivity = snapshot?.hasConnectivity,
+                airplane_mode = snapshot?.airplaneModeOn,
+                sim_statuses = snapshot?.simStatuses,
+                memory_usage = snapshot?.memoryUsage,
+                uptime_ms = snapshot?.uptimeMs,
+                os_version = Build.VERSION.RELEASE,
+                app_version = getAppVersion()
+            )
         )
         
         val jsonBody = HttpClient.json.encodeToString(request)
-        val response = HttpClient.postJson(endpoint, jsonBody, deviceToken)
+        val response = HttpClient.postJson(ApiConfig.Endpoints.DEVICE_PING, jsonBody, token)
         
         return if (response.success) {
-            HttpClient.parseResponse<SmsApiService.ApiWrapper<HeartbeatResponse>>(response)?.data?.let {
-                Result.success(it)
+            HttpClient.parseV2Response<DevicePingResponse>(response)?.let { pingResponse ->
+                // Smartness: Persist keywords and active senders for edge filtering
+                pingResponse.config?.let { config ->
+                    saveDeviceConfig(config)
+                    // Self-healing: Auto-provision control security key if present
+                    config.control_security_key?.let { key ->
+                        authService.setControlSecurityKey(key)
+                        android.util.Log.i("DeviceService", "Control security key auto-provisioned via heartbeat")
+                    }
+                }
+                Result.success(pingResponse)
             } ?: Result.failure(Exception("Failed to parse heartbeat response"))
         } else {
             Result.failure(Exception("Heartbeat failed: ${response.code}"))
         }
     }
     
+    /**
+     * Smartness: Determine if an incoming SMS should be forwarded to the server.
+     * Logic: Forward if it matches an active keyword OR comes from an active session sender.
+     */
+    fun shouldForward(sender: String, body: String): Boolean {
+        // 1. Always forward standard mobile numbers to support conversational workflows
+        // (Standard numbers are > 7 digits and don't contain letters)
+        val isStandardNumber = sender.length > 7 && !sender.any { it.isLetter() }
+        if (isStandardNumber) return true
+
+        // 2. Check Keywords (case-insensitive) for shorter/special numbers
+        val keywords = getActiveKeywords()
+        val matchesKeyword = keywords.any { kw -> 
+            body.trim().split("\\s+".toRegex()).any { word -> word.equals(kw, ignoreCase = true) }
+        }
+        if (matchesKeyword) return true
+        
+        // 3. Check Active Senders (legacy/explicit session tracking)
+        val activeSenders = getActiveSenders()
+        val normalizedSender = sender.replace("+", "").replace(" ", "")
+        val matchesSender = activeSenders.any { s -> 
+            normalizedSender.endsWith(s.replace("+", "").replace(" ", ""))
+        }
+        
+        return matchesSender
+    }
+
+    fun getActiveKeywords(): List<String> {
+        return prefs.getStringSet("active_keywords", emptySet())?.toList() ?: emptyList()
+    }
+
+    fun getActiveSenders(): List<String> {
+        return prefs.getStringSet("active_senders", emptySet())?.toList() ?: emptyList()
+    }
+
+    private fun saveDeviceConfig(config: DeviceConfig) {
+        prefs.edit()
+            .putStringSet("active_keywords", config.keywords.toSet())
+            .putStringSet("active_senders", config.active_senders.toSet())
+            .apply()
+        android.util.Log.d("DeviceService", "Updated Device Config: ${config.keywords.size} keywords, ${config.active_senders.size} senders")
+    }
+
     fun isRegistered(): Boolean = prefs.getBoolean(KEY_IS_REGISTERED, false)
     
-    fun getDeviceToken(): String? = prefs.getString(KEY_DEVICE_TOKEN, null)
+    /**
+     * Get the device's V2 public_id (UUIDv7).
+     */
+    fun getDevicePublicId(): String? = prefs.getString(KEY_DEVICE_PUBLIC_ID, null)
     
+    /**
+     * Get the hardware device identifier (ANDROID_ID).
+     */
     fun getDeviceIdentifier(): String? = prefs.getString(KEY_DEVICE_ID, null)
     
     /**
-     * Clear session token but keep device identity.
+     * Clear device registration state.
      */
-    fun clearToken() {
-        prefs.edit().remove(KEY_DEVICE_TOKEN).apply()
+    fun clearRegistration() {
+        prefs.edit()
+            .remove(KEY_DEVICE_PUBLIC_ID)
+            .remove(KEY_IS_REGISTERED)
+            .apply()
     }
-
-    /**
-     * Deprecated alias for clearToken()
-     */
-    fun clear() = clearToken()
 
     /**
      * Clear all device data.
@@ -233,36 +315,38 @@ class DeviceService(private val context: Context, private val authService: AuthS
         prefs.edit().clear().apply()
     }
     
-    private fun saveDeviceToken(token: String, identifier: String) {
+    private fun saveDeviceInfo(publicId: String, identifier: String) {
         prefs.edit()
-            .putString(KEY_DEVICE_TOKEN, token)
+            .putString(KEY_DEVICE_PUBLIC_ID, publicId)
             .putString(KEY_DEVICE_ID, identifier)
             .putBoolean(KEY_IS_REGISTERED, true)
             .apply()
-        android.util.Log.i("DeviceService", "Successfully saved device token for identifier: $identifier")
+        android.util.Log.i("DeviceService", "Saved device publicId=$publicId for identifier=$identifier")
     }
     
     private fun getAppVersion(): String {
         return try {
-            context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "1.0.0"
+            context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "2.0.0"
         } catch (e: Exception) {
-            "1.0.0"
+            "2.0.0"
         }
     }
 
     /**
-     * Proactively sync FCM token with the server.
+     * Proactively sync FCM token with the server via a ping.
      */
     suspend fun syncFcmToken(fcmToken: String): Result<Boolean> {
-        val deviceToken = getDeviceToken() ?: return Result.failure(Exception("Device not registered"))
+        val token = authService.getAccessToken() ?: return Result.failure(Exception("Not authenticated"))
         val deviceId = getDeviceIdentifier() ?: return Result.failure(Exception("No device identifier"))
 
-        val endpoint = ApiConfig.Endpoints.DEVICE_FCM_TOKEN.replace("{identifier}", deviceId)
-        val response = HttpClient.post(
-            endpoint,
-            mapOf("fcm_token" to fcmToken),
-            deviceToken
+        val request = DevicePingRequest(
+            device_id = deviceId,
+            status = "online",
+            metadata = DevicePingMetadata(fcm_token = fcmToken)
         )
+
+        val jsonBody = HttpClient.json.encodeToString(request)
+        val response = HttpClient.postJson(ApiConfig.Endpoints.DEVICE_PING, jsonBody, token)
 
         return if (response.success) {
             Result.success(true)
@@ -271,47 +355,10 @@ class DeviceService(private val context: Context, private val authService: AuthS
         }
     }
 
-    /**
-     * Report an autonomous carrier metric (balance, bundles) to the server.
-     */
-    suspend fun reportCarrierMetric(type: String, value: String): Result<Boolean> {
-        val deviceToken = getDeviceToken() ?: return Result.failure(Exception("Device not registered"))
-        val deviceId = getDeviceIdentifier() ?: return Result.failure(Exception("No device identifier"))
+    // ── JSON helpers (inline with AuthService pattern) ──
+    private val kotlinx.serialization.json.JsonElement.jsonObject
+        get() = this as? kotlinx.serialization.json.JsonObject
 
-        val endpoint = ApiConfig.Endpoints.DEVICE_METRICS.replace("{identifier}", deviceId)
-        val response = HttpClient.post(
-            endpoint,
-            mapOf("type" to type, "value" to value, "timestamp" to System.currentTimeMillis().toString()),
-            deviceToken
-        )
-
-        return if (response.success) {
-            android.util.Log.d("DeviceService", "Metric reported: $type = $value")
-            Result.success(true)
-        } else {
-            Result.failure(Exception("Metric reporting failed: ${response.code}"))
-        }
-    }
-
-    /**
-     * Request an autonomous airtime refill from the server.
-     */
-    suspend fun requestRefill(amount: Double): Result<Boolean> {
-        val deviceToken = getDeviceToken() ?: return Result.failure(Exception("Device not registered"))
-        val deviceId = getDeviceIdentifier() ?: return Result.failure(Exception("No device identifier"))
-
-        val endpoint = ApiConfig.Endpoints.DEVICE_REFILL.replace("{identifier}", deviceId)
-        val response = HttpClient.post(
-            endpoint,
-            mapOf("amount" to amount.toString()),
-            deviceToken
-        )
-
-        return if (response.success) {
-            android.util.Log.i("DeviceService", "Refill request ($amount) sent for node $deviceId")
-            Result.success(true)
-        } else {
-            Result.failure(Exception("Refill request failed: ${response.code}"))
-        }
-    }
+    private val kotlinx.serialization.json.JsonElement.jsonPrimitive
+        get() = this as? kotlinx.serialization.json.JsonPrimitive
 }

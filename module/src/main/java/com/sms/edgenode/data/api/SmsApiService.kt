@@ -7,11 +7,13 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 /**
- * SMS API service for submitting received SMS and status updates.
- * Data is encrypted before sending.
+ * SMS API service for submitting received SMS (ingress) and delivery status reports.
+ * V2 API — Rust/Axum backend.
  */
-class SmsApiService(private val deviceService: DeviceService) {
+class SmsApiService(private val authService: AuthService) {
     
+    // Quota info is handled via a separate billing/quota service in V2, 
+    // but we'll keep the state here for UI compatibility if needed.
     private val _quotaInfo = MutableStateFlow<QuotaInfo?>(null)
     val quotaInfo: StateFlow<QuotaInfo?> = _quotaInfo.asStateFlow()
 
@@ -20,50 +22,182 @@ class SmsApiService(private val deviceService: DeviceService) {
     }
     
     @Serializable
-    data class ApiWrapper<T>(
-        val success: Boolean,
-        val message: String? = null,
-        val data: T? = null
-    )
-
-    @Serializable
-    data class OrgBalance(
-        val amount: Double,
-        val currency: String
-    )
-
-    @Serializable
-    data class QuotaDetail(
-        val allowed: Boolean,
-        val limit: String, // Can be "unlimited" or number
-        val used: Int,
-        val remaining: String, // Can be "unlimited" or number
-        val balance: OrgBalance? = null
-    )
-
-    @Serializable
     data class QuotaInfo(
-        val received: QuotaDetail? = null,
-        val sent: QuotaDetail? = null,
-        val balance: OrgBalance? = null
+        val received_count: Int = 0,
+        val sent_count: Int = 0,
+        val limit: Int = -1
+    )
+
+    // ── V2 Request Models (aligned with apiV2/crates/api/src/models/sms/dto.rs) ──
+
+    @Serializable
+    data class SmsIngressItem(
+        val sender: String,
+        val message: String,
+        val message_id: String,
+        val sent_timestamp: Long,
+        val destination: String? = null
     )
 
     @Serializable
-    data class SmsSubmitResponse(
-        val success: Boolean = true,
+    data class SmsIngressBatchRequest(
+        val batch: List<SmsIngressItem>
+    )
+
+    @Serializable
+    data class SmsStatusReportItem(
+        val egress_id: Long,
+        val status: String, // e.g. "delivered", "failed"
+        val error_message: String? = null,
+        val timestamp: Long
+    )
+
+    @Serializable
+    data class SmsStatusReportBatchRequest(
+        val reports: List<SmsStatusReportItem>
+    )
+
+    // ── V2 Response Models ──
+
+    @Serializable
+    data class IngressResponse(
+        val accepted: Boolean = true,
         val message_id: String? = null,
-        val message: String? = null,
-        val error: String? = null,
-        val duplicate: Boolean = false,
-        val quota: QuotaInfo? = null
+        val duplicate: Boolean = false
+    )
+
+    @Serializable
+    data class StatusReportResponse(
+        val acknowledged: Boolean = true
     )
     
-    @Serializable
-    data class SmsStatusResponse(
-        val success: Boolean = true,
-        val message: String? = null,
-        val quota: QuotaInfo? = null
-    )
+    /**
+     * Submit received SMS to API (ingress).
+     */
+    suspend fun submitSms(
+        sender: String,
+        message: String,
+        messageId: String,
+        destination: String? = null,
+        sentTimestamp: Long
+    ): Result<IngressResponse> {
+        val token = authService.getAccessToken()
+            ?: return Result.failure(Exception("Not authenticated"))
+        
+        // In V2, we don't encrypt ingress data at the application layer yet, 
+        // as the server needs to read the sender and message for routing/keywords.
+        // It's already protected by HTTPS and JWT.
+        val request = SmsIngressItem(
+            sender = sender,
+            message = message,
+            message_id = messageId,
+            sent_timestamp = sentTimestamp,
+            destination = destination
+        )
+
+        val jsonBody = HttpClient.json.encodeToString(request)
+        val response = HttpClient.postJson(
+            ApiConfig.Endpoints.SMS_INGRESS,
+            jsonBody,
+            token
+        )
+        
+        return if (response.success) {
+            HttpClient.parseV2Response<IngressResponse>(response)?.let {
+                Result.success(it)
+            } ?: Result.success(IngressResponse(true))
+        } else {
+            Result.failure(Exception("SMS ingress failed: ${response.code}"))
+        }
+    }
+
+    /**
+     * Submit a batch of received SMS to API (ingress batch).
+     */
+    suspend fun submitBatch(
+        batch: List<SmsIngressItem>
+    ): Result<Boolean> {
+        val token = authService.getAccessToken()
+            ?: return Result.failure(Exception("Not authenticated"))
+        
+        val encryptedBatch = batch.map { item ->
+            item.copy(
+                sender = com.sms.edgenode.security.PayloadEncryption.encrypt(item.sender) ?: item.sender,
+                message = com.sms.edgenode.security.PayloadEncryption.encrypt(item.message) ?: item.message
+            )
+        }
+
+        val jsonBody = HttpClient.json.encodeToString(SmsIngressBatchRequest(encryptedBatch))
+        val response = HttpClient.postJson(
+            ApiConfig.Endpoints.SMS_INGRESS_BATCH,
+            jsonBody,
+            token
+        )
+
+        return if (response.success) {
+            Result.success(true)
+        } else {
+            Result.failure(Exception("SMS ingress batch failed: ${response.code}"))
+        }
+    }
+    
+    /**
+     * Submit SMS delivery status report (for outgoing SMS).
+     */
+    suspend fun submitStatus(
+        egressId: Long,
+        status: String,
+        errorMessage: String? = null,
+        timestamp: Long = System.currentTimeMillis()
+    ): Result<StatusReportResponse> {
+        val token = authService.getAccessToken()
+            ?: return Result.failure(Exception("Not authenticated"))
+        
+        val report = SmsStatusReportItem(
+            egress_id = egressId,
+            status = status,
+            error_message = errorMessage,
+            timestamp = timestamp
+        )
+
+        val jsonBody = HttpClient.json.encodeToString(report)
+        val response = HttpClient.postJson(
+            ApiConfig.Endpoints.SMS_STATUS,
+            jsonBody,
+            token
+        )
+        
+        return if (response.success) {
+            HttpClient.parseV2Response<StatusReportResponse>(response)?.let {
+                Result.success(it)
+            } ?: Result.success(StatusReportResponse(true))
+        } else {
+            Result.failure(Exception("Status report failed: ${response.code}"))
+        }
+    }
+
+    /**
+     * Submit a batch of delivery status reports.
+     */
+    suspend fun submitStatusBatch(reports: List<SmsStatusReportItem>): Result<Boolean> {
+        val token = authService.getAccessToken()
+            ?: return Result.failure(Exception("Not authenticated"))
+        
+        val jsonBody = HttpClient.json.encodeToString(SmsStatusReportBatchRequest(reports))
+        val response = HttpClient.postJson(
+            ApiConfig.Endpoints.SMS_STATUS_BATCH,
+            jsonBody,
+            token
+        )
+        
+        return if (response.success) {
+            Result.success(true)
+        } else {
+            Result.failure(Exception("Batch status report failed: ${response.code}"))
+        }
+    }
+
+    // ── V1 Backward Compatibility (Legacy field mapping) ──
 
     @Serializable
     data class StatusUpdate(
@@ -77,216 +211,19 @@ class SmsApiService(private val deviceService: DeviceService) {
         val carrier: String? = null
     )
 
-    @Serializable
-    data class StatusBatchRequest(
-        val updates: List<StatusUpdate>
-    )
-
-    @Serializable
-    data class SmsBatchItem(
-        val sender: String,
-        val message: String,
-        val message_id: String,
-        val destination: String,
-        val sent_timestamp: Long
-    )
-
-    @Serializable
-    data class SmsBatchRequest(
-        val batch: List<SmsBatchItem>
-    )
-
-    @Serializable
-    data class SmsBatchResponse(
-        val success: Boolean = true,
-        val results: List<SmsSubmitResponse>? = null,
-        val quota: QuotaInfo? = null,
-        val error: String? = null
-    )
-    
     /**
-     * Submit received SMS to API (encrypted).
+     * Legacy submitStatusBatch for RoutingService transition.
+     * Maps StatusUpdate list to SmsStatusReportItem list.
      */
-    suspend fun submitSms(
-        sender: String,
-        message: String,
-        messageId: String,
-        destination: String,
-        sentTimestamp: Long,
-        organizationId: String
-    ): Result<SmsSubmitResponse> {
-        val deviceToken = deviceService.getDeviceToken()
-            ?: return Result.failure(Exception("Device not registered"))
-        
-        val deviceId = deviceService.getDeviceIdentifier()
-            ?: return Result.failure(Exception("Device identifier not found"))
-        
-        // Encrypt sensitive data
-        val encryptedSender = com.sms.edgenode.security.PayloadEncryption.encrypt(sender)
-            ?: return Result.failure(Exception("Payload encryption failed for sender"))
-        val encryptedMessage = com.sms.edgenode.security.PayloadEncryption.encrypt(message)
-            ?: return Result.failure(Exception("Payload encryption failed for message"))
-        
-        val endpoint = ApiConfig.Endpoints.SMS_RECEIVE.replace("{identifier}", deviceId)
-        val response = HttpClient.post(
-            endpoint,
-            mapOf(
-                "sender" to encryptedSender,
-                "message" to encryptedMessage,
-                "message_id" to messageId,
-                "destination" to destination,
-                "sent_timestamp" to sentTimestamp.toString()
-            ),
-            deviceToken
-        )
-        
-        return if (response.success) {
-            HttpClient.parseResponse<ApiWrapper<SmsSubmitResponse>>(response)?.data?.let {
-                updateQuota(it.quota)
-                Result.success(it)
-            } ?: Result.failure(Exception("Failed to parse response"))
-        } else {
-            Result.failure(Exception("SMS submission failed: ${response.code}"))
+    suspend fun submitStatusBatchLegacy(updates: List<StatusUpdate>): Result<Boolean> {
+        val reports = updates.map {
+            SmsStatusReportItem(
+                egress_id = it.request_id?.toLongOrNull() ?: 0L,
+                status = it.status.lowercase(),
+                error_message = it.error,
+                timestamp = it.timestamp
+            )
         }
-    }
-
-    /**
-     * Submit a batch of received SMS to API (encrypted).
-     */
-    suspend fun submitBatch(
-        batch: List<SmsBatchItem>,
-        organizationId: String
-    ): Result<SmsBatchResponse> {
-        val deviceToken = deviceService.getDeviceToken()
-            ?: return Result.failure(Exception("Device not registered"))
-        
-        val deviceId = deviceService.getDeviceIdentifier()
-            ?: return Result.failure(Exception("Device identifier not found"))
-
-        val encryptedBatch = try {
-            batch.map { item ->
-                val encSender = com.sms.edgenode.security.PayloadEncryption.encrypt(item.sender)
-                    ?: throw Exception("Payload encryption failed for batch sender")
-                val encMessage = com.sms.edgenode.security.PayloadEncryption.encrypt(item.message)
-                    ?: throw Exception("Payload encryption failed for batch message")
-                
-                item.copy(
-                    sender = encSender,
-                    message = encMessage
-                )
-            }
-        } catch (e: Exception) {
-            return Result.failure(e)
-        }
-
-        val jsonBody = HttpClient.json.encodeToString(SmsBatchRequest(encryptedBatch))
-        val endpoint = ApiConfig.Endpoints.SMS_BATCH.replace("{identifier}", deviceId)
-        val response = HttpClient.postJson(
-            endpoint,
-            jsonBody,
-            deviceToken
-        )
-
-        return if (response.success) {
-            HttpClient.parseResponse<ApiWrapper<SmsBatchResponse>>(response)?.data?.let {
-                updateQuota(it.quota)
-                Result.success(it)
-            } ?: Result.success(SmsBatchResponse(true))
-        } else {
-            Result.failure(Exception("SMS batch submission failed: ${response.code}"))
-        }
-    }
-    
-    /**
-     * Submit SMS send status (for outgoing SMS).
-     */
-    suspend fun submitStatus(
-        phoneNumber: String,
-        message: String,
-        status: String,
-        error: String? = null,
-        requestId: String? = null,
-        timestamp: Long = System.currentTimeMillis()
-    ): Result<SmsStatusResponse> {
-        val deviceToken = deviceService.getDeviceToken()
-            ?: return Result.failure(Exception("Device not registered"))
-        
-        val deviceId = deviceService.getDeviceIdentifier()
-            ?: return Result.failure(Exception("Device identifier not found"))
-        
-        val endpoint = ApiConfig.Endpoints.SMS_STATUS.replace("{identifier}", deviceId)
-        val response = HttpClient.post(
-            endpoint,
-            mapOf(
-                "phone_number" to phoneNumber,
-                "message" to message,
-                "status" to status,
-                "error" to (error ?: ""),
-                "request_id" to (requestId ?: ""),
-                "timestamp" to timestamp.toString()
-            ),
-            deviceToken
-        )
-        
-        return if (response.success) {
-            HttpClient.parseResponse<ApiWrapper<SmsStatusResponse>>(response)?.data?.let {
-                updateQuota(it.quota)
-                Result.success(it)
-            } ?: Result.success(SmsStatusResponse(true))
-        } else {
-            Result.failure(Exception("Status update failed: ${response.code}"))
-        }
-    }
-
-    /**
-     * Submit a batch of status updates to the API.
-     */
-    suspend fun submitStatusBatch(updates: List<StatusUpdate>): Result<SmsStatusResponse> {
-        val deviceToken = deviceService.getDeviceToken()
-            ?: return Result.failure(Exception("Device not registered"))
-        
-        val deviceId = deviceService.getDeviceIdentifier()
-            ?: return Result.failure(Exception("Device identifier not found"))
-        
-        val jsonBody = HttpClient.json.encodeToString(StatusBatchRequest(updates))
-        val endpoint = ApiConfig.Endpoints.SMS_STATUS_BATCH.replace("{identifier}", deviceId)
-        
-        val response = HttpClient.postJson(
-            endpoint,
-            jsonBody,
-            deviceToken
-        )
-        
-        return if (response.success) {
-            HttpClient.parseResponse<ApiWrapper<SmsStatusResponse>>(response)?.data?.let {
-                updateQuota(it.quota)
-                Result.success(it)
-            } ?: Result.success(SmsStatusResponse(true))
-        } else {
-            Result.failure(Exception("Batch status update failed: ${response.code}"))
-        }
-    }
-
-    /**
-     * Fetch current subscription quota.
-     */
-    suspend fun getQuota(): Result<QuotaInfo> {
-        val deviceToken = deviceService.getDeviceToken()
-            ?: return Result.failure(Exception("Device not registered"))
-        
-        val deviceId = deviceService.getDeviceIdentifier()
-            ?: return Result.failure(Exception("Device identifier not found"))
-
-        val endpoint = ApiConfig.Endpoints.SMS_QUOTA.replace("{identifier}", deviceId)
-        val response = HttpClient.get(endpoint, deviceToken)
-        
-        return if (response.success) {
-            HttpClient.parseResponse<ApiWrapper<QuotaInfo>>(response)?.data?.let {
-                updateQuota(it)
-                Result.success(it)
-            } ?: Result.failure(Exception("Failed to parse quota response"))
-        } else {
-            Result.failure(Exception("Failed to fetch quota: ${response.code}"))
-        }
+        return submitStatusBatch(reports)
     }
 }

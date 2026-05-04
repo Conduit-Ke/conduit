@@ -4470,3 +4470,833 @@ Restarting app...
 Starting: Intent { cmp=com.example.mrbill/com.sms.edgenode.ui.MainActivity }
 App deployed and restarted!
 === Deploy ended at 27 Machi 2026 12:42:17 alasiri EAT ===
+=== Deploy started at  4 Mei 2026 12:21:32 alasiri EAT ===
+Building and installing to device...
+To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/8.13/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+Daemon will be stopped at the end of the build 
+Build failed! Check deploy.log for details.
+=== Deploy ended at  4 Mei 2026 12:21:38 alasiri EAT ===
+=== Deploy started at  4 Mei 2026 12:21:51 alasiri EAT ===
+Building and installing to device...
+To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/8.13/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+Daemon will be stopped at the end of the build 
+> Task :module:checkKotlinGradlePluginConfigurationErrors
+> Task :module:preBuild UP-TO-DATE
+> Task :module:preDebugBuild UP-TO-DATE
+> Task :module:checkDebugAarMetadata UP-TO-DATE
+> Task :module:processDebugNavigationResources UP-TO-DATE
+> Task :module:compileDebugNavigationResources UP-TO-DATE
+> Task :module:generateDebugResValues UP-TO-DATE
+> Task :module:injectCrashlyticsMappingFileIdDebug UP-TO-DATE
+> Task :module:processDebugGoogleServices UP-TO-DATE
+> Task :module:mapDebugSourceSetPaths UP-TO-DATE
+> Task :module:generateDebugResources UP-TO-DATE
+> Task :module:mergeDebugResources UP-TO-DATE
+> Task :module:packageDebugResources UP-TO-DATE
+> Task :module:parseDebugLocalResources UP-TO-DATE
+> Task :module:createDebugCompatibleScreenManifests UP-TO-DATE
+> Task :module:extractDeepLinksDebug UP-TO-DATE
+> Task :module:processDebugMainManifest UP-TO-DATE
+> Task :module:processDebugManifest UP-TO-DATE
+> Task :module:processDebugManifestForPackage UP-TO-DATE
+> Task :module:processDebugResources UP-TO-DATE
+> Task :module:javaPreCompileDebug UP-TO-DATE
+> Task :module:mergeDebugShaders UP-TO-DATE
+> Task :module:compileDebugShaders NO-SOURCE
+> Task :module:generateDebugAssets UP-TO-DATE
+> Task :module:mergeDebugAssets UP-TO-DATE
+> Task :module:compressDebugAssets UP-TO-DATE
+> Task :module:desugarDebugFileDependencies UP-TO-DATE
+> Task :module:checkDebugDuplicateClasses UP-TO-DATE
+> Task :module:mergeExtDexDebug UP-TO-DATE
+> Task :module:mergeLibDexDebug UP-TO-DATE
+> Task :module:mergeDebugJniLibFolders UP-TO-DATE
+> Task :module:mergeDebugNativeLibs UP-TO-DATE
+> Task :module:stripDebugDebugSymbols UP-TO-DATE
+> Task :module:validateSigningDebug UP-TO-DATE
+> Task :module:writeDebugAppMetadata UP-TO-DATE
+> Task :module:writeDebugSigningConfigVersions UP-TO-DATE
+> Task :module:kspDebugKotlin
+
+> Task :module:compileDebugKotlin
+e: file:///home/nomad/Desktop/work/Conduit/app/module/src/main/java/com/sms/edgenode/data/api/HttpClient.kt:95:44 Unresolved reference: baseUrl
+e: file:///home/nomad/Desktop/work/Conduit/app/module/src/main/java/com/sms/edgenode/ui/screens/SettingsScreen.kt:520:69 Unresolved reference: baseUrl
+
+> Task :module:compileDebugKotlin FAILED
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':module:compileDebugKotlin'.
+> A failure occurred while executing org.jetbrains.kotlin.compilerRunner.GradleCompilerRunnerWithWorkers$GradleKotlinCompilerWorkAction
+   > Compilation error. See log for more details
+
+* Try:
+> Run with --stacktrace option to get the stack trace.
+> Run with --info or --debug option to get more log output.
+> Run with --scan to get full insights.
+> Get more help at https://help.gradle.org.
+
+BUILD FAILED in 14s
+34 actionable tasks: 3 executed, 31 up-to-date
+Build failed! Check deploy.log for details.
+=== Deploy ended at  4 Mei 2026 12:22:06 alasiri EAT ===
+=== Deploy started at  4 Mei 2026 12:23:47 alasiri EAT ===
+Building and installing to device...
+To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/8.13/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+Daemon will be stopped at the end of the build 
+> Task :module:checkKotlinGradlePluginConfigurationErrors
+> Task :module:preBuild UP-TO-DATE
+> Task :module:preDebugBuild UP-TO-DATE
+> Task :module:checkDebugAarMetadata UP-TO-DATE
+> Task :module:processDebugNavigationResources UP-TO-DATE
+> Task :module:compileDebugNavigationResources UP-TO-DATE
+> Task :module:generateDebugResValues UP-TO-DATE
+> Task :module:injectCrashlyticsMappingFileIdDebug UP-TO-DATE
+> Task :module:processDebugGoogleServices UP-TO-DATE
+> Task :module:mapDebugSourceSetPaths UP-TO-DATE
+> Task :module:generateDebugResources UP-TO-DATE
+> Task :module:mergeDebugResources UP-TO-DATE
+> Task :module:packageDebugResources UP-TO-DATE
+> Task :module:parseDebugLocalResources UP-TO-DATE
+> Task :module:createDebugCompatibleScreenManifests UP-TO-DATE
+> Task :module:extractDeepLinksDebug UP-TO-DATE
+> Task :module:processDebugMainManifest UP-TO-DATE
+> Task :module:processDebugManifest UP-TO-DATE
+> Task :module:processDebugManifestForPackage UP-TO-DATE
+> Task :module:processDebugResources UP-TO-DATE
+> Task :module:kspDebugKotlin UP-TO-DATE
+> Task :module:compileDebugKotlin UP-TO-DATE
+> Task :module:javaPreCompileDebug UP-TO-DATE
+> Task :module:compileDebugJavaWithJavac UP-TO-DATE
+> Task :module:mergeDebugShaders UP-TO-DATE
+> Task :module:compileDebugShaders NO-SOURCE
+> Task :module:generateDebugAssets UP-TO-DATE
+> Task :module:mergeDebugAssets UP-TO-DATE
+> Task :module:compressDebugAssets UP-TO-DATE
+> Task :module:desugarDebugFileDependencies UP-TO-DATE
+> Task :module:dexBuilderDebug UP-TO-DATE
+> Task :module:mergeDebugGlobalSynthetics UP-TO-DATE
+> Task :module:processDebugJavaRes UP-TO-DATE
+> Task :module:mergeDebugJavaResource UP-TO-DATE
+> Task :module:checkDebugDuplicateClasses UP-TO-DATE
+> Task :module:mergeExtDexDebug UP-TO-DATE
+> Task :module:mergeLibDexDebug UP-TO-DATE
+> Task :module:mergeProjectDexDebug UP-TO-DATE
+> Task :module:mergeDebugJniLibFolders UP-TO-DATE
+> Task :module:mergeDebugNativeLibs UP-TO-DATE
+> Task :module:stripDebugDebugSymbols UP-TO-DATE
+> Task :module:validateSigningDebug UP-TO-DATE
+> Task :module:writeDebugAppMetadata UP-TO-DATE
+> Task :module:writeDebugSigningConfigVersions UP-TO-DATE
+> Task :module:packageDebug UP-TO-DATE
+> Task :module:createDebugApkListingFileRedirect UP-TO-DATE
+
+> Task :module:installDebug
+[adb]: * daemon not running; starting now at tcp:5037
+[adb]: * daemon started successfully
+Installing APK 'conduIT.apk' on 'SM-A566B - 16' for :module:debug
+Installed on 1 device.
+
+BUILD SUCCESSFUL in 27s
+43 actionable tasks: 2 executed, 41 up-to-date
+Restarting app...
+Starting: Intent { cmp=com.example.mrbill/com.sms.edgenode.ui.MainActivity }
+App deployed and restarted!
+=== Deploy ended at  4 Mei 2026 12:24:15 alasiri EAT ===
+=== Deploy started at  4 Mei 2026 12:38:58 alasiri EAT ===
+Building and installing to device...
+To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/8.13/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+Daemon will be stopped at the end of the build 
+> Task :module:checkKotlinGradlePluginConfigurationErrors
+> Task :module:preBuild UP-TO-DATE
+> Task :module:preDebugBuild UP-TO-DATE
+> Task :module:checkDebugAarMetadata UP-TO-DATE
+> Task :module:processDebugNavigationResources UP-TO-DATE
+> Task :module:compileDebugNavigationResources UP-TO-DATE
+> Task :module:generateDebugResValues UP-TO-DATE
+> Task :module:injectCrashlyticsMappingFileIdDebug UP-TO-DATE
+> Task :module:processDebugGoogleServices UP-TO-DATE
+> Task :module:mapDebugSourceSetPaths UP-TO-DATE
+> Task :module:generateDebugResources UP-TO-DATE
+> Task :module:mergeDebugResources UP-TO-DATE
+> Task :module:packageDebugResources UP-TO-DATE
+> Task :module:parseDebugLocalResources UP-TO-DATE
+> Task :module:createDebugCompatibleScreenManifests UP-TO-DATE
+> Task :module:extractDeepLinksDebug UP-TO-DATE
+> Task :module:processDebugMainManifest UP-TO-DATE
+> Task :module:processDebugManifest UP-TO-DATE
+> Task :module:processDebugManifestForPackage UP-TO-DATE
+> Task :module:processDebugResources UP-TO-DATE
+> Task :module:kspDebugKotlin UP-TO-DATE
+> Task :module:compileDebugKotlin UP-TO-DATE
+> Task :module:javaPreCompileDebug UP-TO-DATE
+> Task :module:compileDebugJavaWithJavac UP-TO-DATE
+> Task :module:mergeDebugShaders UP-TO-DATE
+> Task :module:compileDebugShaders NO-SOURCE
+> Task :module:generateDebugAssets UP-TO-DATE
+> Task :module:mergeDebugAssets UP-TO-DATE
+> Task :module:compressDebugAssets UP-TO-DATE
+> Task :module:desugarDebugFileDependencies UP-TO-DATE
+> Task :module:dexBuilderDebug UP-TO-DATE
+> Task :module:mergeDebugGlobalSynthetics UP-TO-DATE
+> Task :module:processDebugJavaRes UP-TO-DATE
+> Task :module:mergeDebugJavaResource UP-TO-DATE
+> Task :module:checkDebugDuplicateClasses UP-TO-DATE
+> Task :module:mergeExtDexDebug UP-TO-DATE
+> Task :module:mergeLibDexDebug UP-TO-DATE
+> Task :module:mergeProjectDexDebug UP-TO-DATE
+> Task :module:mergeDebugJniLibFolders UP-TO-DATE
+> Task :module:mergeDebugNativeLibs UP-TO-DATE
+> Task :module:stripDebugDebugSymbols UP-TO-DATE
+> Task :module:validateSigningDebug UP-TO-DATE
+> Task :module:writeDebugAppMetadata UP-TO-DATE
+> Task :module:writeDebugSigningConfigVersions UP-TO-DATE
+> Task :module:packageDebug UP-TO-DATE
+> Task :module:createDebugApkListingFileRedirect UP-TO-DATE
+
+> Task :module:installDebug
+Installing APK 'conduIT.apk' on 'SM-A566B - 16' for :module:debug
+Installed on 1 device.
+
+BUILD SUCCESSFUL in 43s
+43 actionable tasks: 2 executed, 41 up-to-date
+Restarting app...
+Starting: Intent { cmp=com.example.mrbill/com.sms.edgenode.ui.MainActivity }
+App deployed and restarted!
+=== Deploy ended at  4 Mei 2026 12:39:42 alasiri EAT ===
+=== Deploy started at  4 Mei 2026 01:31:33 alasiri EAT ===
+Building and installing to device...
+To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/8.13/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+Daemon will be stopped at the end of the build 
+> Task :module:checkKotlinGradlePluginConfigurationErrors
+> Task :module:preBuild UP-TO-DATE
+> Task :module:preDebugBuild UP-TO-DATE
+> Task :module:checkDebugAarMetadata UP-TO-DATE
+> Task :module:processDebugNavigationResources UP-TO-DATE
+> Task :module:compileDebugNavigationResources UP-TO-DATE
+> Task :module:generateDebugResValues UP-TO-DATE
+> Task :module:injectCrashlyticsMappingFileIdDebug UP-TO-DATE
+> Task :module:processDebugGoogleServices UP-TO-DATE
+> Task :module:mapDebugSourceSetPaths UP-TO-DATE
+> Task :module:generateDebugResources UP-TO-DATE
+> Task :module:mergeDebugResources UP-TO-DATE
+> Task :module:packageDebugResources UP-TO-DATE
+> Task :module:parseDebugLocalResources UP-TO-DATE
+> Task :module:createDebugCompatibleScreenManifests UP-TO-DATE
+> Task :module:extractDeepLinksDebug UP-TO-DATE
+> Task :module:processDebugMainManifest UP-TO-DATE
+> Task :module:processDebugManifest UP-TO-DATE
+> Task :module:processDebugManifestForPackage UP-TO-DATE
+> Task :module:processDebugResources UP-TO-DATE
+> Task :module:javaPreCompileDebug UP-TO-DATE
+> Task :module:mergeDebugShaders UP-TO-DATE
+> Task :module:compileDebugShaders NO-SOURCE
+> Task :module:generateDebugAssets UP-TO-DATE
+> Task :module:mergeDebugAssets UP-TO-DATE
+> Task :module:compressDebugAssets UP-TO-DATE
+> Task :module:desugarDebugFileDependencies UP-TO-DATE
+> Task :module:checkDebugDuplicateClasses UP-TO-DATE
+> Task :module:mergeExtDexDebug UP-TO-DATE
+> Task :module:mergeLibDexDebug UP-TO-DATE
+> Task :module:mergeDebugJniLibFolders UP-TO-DATE
+> Task :module:mergeDebugNativeLibs UP-TO-DATE
+> Task :module:stripDebugDebugSymbols UP-TO-DATE
+> Task :module:validateSigningDebug UP-TO-DATE
+> Task :module:writeDebugAppMetadata UP-TO-DATE
+> Task :module:writeDebugSigningConfigVersions UP-TO-DATE
+> Task :module:kspDebugKotlin
+
+> Task :module:compileDebugKotlin
+w: file:///home/nomad/Desktop/work/Conduit/app/module/src/main/java/com/sms/edgenode/EdgeNodeApp.kt:76:67 Parameter 'response' is never used, could be renamed to _
+w: file:///home/nomad/Desktop/work/Conduit/app/module/src/main/java/com/sms/edgenode/domain/RoutingEngine.kt:83:49 Elvis operator (?:) always returns the left operand of non-nullable type Int
+w: file:///home/nomad/Desktop/work/Conduit/app/module/src/main/java/com/sms/edgenode/sender/SmsStatusReceiver.kt:42:9 Parameter 'smsApiService' is never used
+w: file:///home/nomad/Desktop/work/Conduit/app/module/src/main/java/com/sms/edgenode/sender/SmsStatusReceiver.kt:149:9 Parameter 'context' is never used
+w: file:///home/nomad/Desktop/work/Conduit/app/module/src/main/java/com/sms/edgenode/sender/SmsStatusReceiver.kt:152:9 Parameter 'smsApiService' is never used
+
+> Task :module:compileDebugJavaWithJavac
+> Task :module:dexBuilderDebug
+> Task :module:mergeDebugGlobalSynthetics UP-TO-DATE
+> Task :module:processDebugJavaRes UP-TO-DATE
+> Task :module:mergeDebugJavaResource UP-TO-DATE
+> Task :module:mergeProjectDexDebug
+> Task :module:packageDebug
+> Task :module:createDebugApkListingFileRedirect UP-TO-DATE
+
+> Task :module:installDebug
+Installing APK 'conduIT.apk' on 'SM-A566B - 16' for :module:debug
+Installed on 1 device.
+
+BUILD SUCCESSFUL in 49s
+43 actionable tasks: 8 executed, 35 up-to-date
+Restarting app...
+Starting: Intent { cmp=com.example.mrbill/com.sms.edgenode.ui.MainActivity }
+App deployed and restarted!
+=== Deploy ended at  4 Mei 2026 01:32:23 alasiri EAT ===
+=== Deploy started at  4 Mei 2026 01:44:01 alasiri EAT ===
+Building and installing to device...
+To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/8.13/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+Daemon will be stopped at the end of the build 
+> Task :module:checkKotlinGradlePluginConfigurationErrors
+> Task :module:preBuild UP-TO-DATE
+> Task :module:preDebugBuild UP-TO-DATE
+> Task :module:checkDebugAarMetadata UP-TO-DATE
+> Task :module:processDebugNavigationResources UP-TO-DATE
+> Task :module:compileDebugNavigationResources UP-TO-DATE
+> Task :module:generateDebugResValues UP-TO-DATE
+> Task :module:injectCrashlyticsMappingFileIdDebug UP-TO-DATE
+> Task :module:processDebugGoogleServices UP-TO-DATE
+> Task :module:mapDebugSourceSetPaths UP-TO-DATE
+> Task :module:generateDebugResources UP-TO-DATE
+> Task :module:mergeDebugResources UP-TO-DATE
+> Task :module:packageDebugResources UP-TO-DATE
+> Task :module:parseDebugLocalResources UP-TO-DATE
+> Task :module:createDebugCompatibleScreenManifests UP-TO-DATE
+> Task :module:extractDeepLinksDebug UP-TO-DATE
+> Task :module:processDebugMainManifest UP-TO-DATE
+> Task :module:processDebugManifest UP-TO-DATE
+> Task :module:processDebugManifestForPackage UP-TO-DATE
+> Task :module:processDebugResources UP-TO-DATE
+> Task :module:javaPreCompileDebug UP-TO-DATE
+> Task :module:mergeDebugShaders UP-TO-DATE
+> Task :module:compileDebugShaders NO-SOURCE
+> Task :module:generateDebugAssets UP-TO-DATE
+> Task :module:mergeDebugAssets UP-TO-DATE
+> Task :module:compressDebugAssets UP-TO-DATE
+> Task :module:desugarDebugFileDependencies UP-TO-DATE
+> Task :module:checkDebugDuplicateClasses UP-TO-DATE
+> Task :module:mergeExtDexDebug UP-TO-DATE
+> Task :module:mergeLibDexDebug UP-TO-DATE
+> Task :module:mergeDebugJniLibFolders UP-TO-DATE
+> Task :module:mergeDebugNativeLibs UP-TO-DATE
+> Task :module:stripDebugDebugSymbols UP-TO-DATE
+> Task :module:validateSigningDebug UP-TO-DATE
+> Task :module:writeDebugAppMetadata UP-TO-DATE
+> Task :module:writeDebugSigningConfigVersions UP-TO-DATE
+> Task :module:kspDebugKotlin
+> Task :module:compileDebugKotlin
+> Task :module:compileDebugJavaWithJavac UP-TO-DATE
+> Task :module:dexBuilderDebug UP-TO-DATE
+> Task :module:mergeDebugGlobalSynthetics UP-TO-DATE
+> Task :module:processDebugJavaRes UP-TO-DATE
+> Task :module:mergeDebugJavaResource UP-TO-DATE
+> Task :module:mergeProjectDexDebug UP-TO-DATE
+> Task :module:packageDebug UP-TO-DATE
+> Task :module:createDebugApkListingFileRedirect UP-TO-DATE
+
+> Task :module:installDebug
+Installing APK 'conduIT.apk' on 'SM-A566B - 16' for :module:debug
+Installed on 1 device.
+
+BUILD SUCCESSFUL in 52s
+43 actionable tasks: 4 executed, 39 up-to-date
+Restarting app...
+Starting: Intent { cmp=com.example.mrbill/com.sms.edgenode.ui.MainActivity }
+App deployed and restarted!
+=== Deploy ended at  4 Mei 2026 01:44:53 alasiri EAT ===
+=== Deploy started at  4 Mei 2026 03:00:10 alasiri EAT ===
+Building and installing to device...
+To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/8.13/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+Daemon will be stopped at the end of the build 
+> Task :module:checkKotlinGradlePluginConfigurationErrors
+> Task :module:preBuild UP-TO-DATE
+> Task :module:preDebugBuild UP-TO-DATE
+> Task :module:checkDebugAarMetadata UP-TO-DATE
+> Task :module:processDebugNavigationResources UP-TO-DATE
+> Task :module:compileDebugNavigationResources UP-TO-DATE
+> Task :module:generateDebugResValues UP-TO-DATE
+> Task :module:injectCrashlyticsMappingFileIdDebug UP-TO-DATE
+> Task :module:processDebugGoogleServices UP-TO-DATE
+> Task :module:mapDebugSourceSetPaths UP-TO-DATE
+> Task :module:generateDebugResources UP-TO-DATE
+> Task :module:mergeDebugResources UP-TO-DATE
+> Task :module:packageDebugResources UP-TO-DATE
+> Task :module:parseDebugLocalResources UP-TO-DATE
+> Task :module:createDebugCompatibleScreenManifests UP-TO-DATE
+> Task :module:extractDeepLinksDebug UP-TO-DATE
+> Task :module:processDebugMainManifest UP-TO-DATE
+> Task :module:processDebugManifest UP-TO-DATE
+> Task :module:processDebugManifestForPackage UP-TO-DATE
+> Task :module:processDebugResources UP-TO-DATE
+> Task :module:javaPreCompileDebug UP-TO-DATE
+> Task :module:mergeDebugShaders UP-TO-DATE
+> Task :module:compileDebugShaders NO-SOURCE
+> Task :module:generateDebugAssets UP-TO-DATE
+> Task :module:mergeDebugAssets UP-TO-DATE
+> Task :module:compressDebugAssets UP-TO-DATE
+> Task :module:desugarDebugFileDependencies UP-TO-DATE
+> Task :module:checkDebugDuplicateClasses UP-TO-DATE
+> Task :module:mergeExtDexDebug UP-TO-DATE
+> Task :module:mergeLibDexDebug UP-TO-DATE
+> Task :module:mergeDebugJniLibFolders UP-TO-DATE
+> Task :module:mergeDebugNativeLibs UP-TO-DATE
+> Task :module:stripDebugDebugSymbols UP-TO-DATE
+> Task :module:validateSigningDebug UP-TO-DATE
+> Task :module:writeDebugAppMetadata UP-TO-DATE
+> Task :module:writeDebugSigningConfigVersions UP-TO-DATE
+> Task :module:kspDebugKotlin
+> Task :module:compileDebugKotlin
+> Task :module:compileDebugJavaWithJavac UP-TO-DATE
+> Task :module:dexBuilderDebug
+> Task :module:mergeDebugGlobalSynthetics UP-TO-DATE
+> Task :module:processDebugJavaRes UP-TO-DATE
+> Task :module:mergeDebugJavaResource UP-TO-DATE
+> Task :module:mergeProjectDexDebug
+> Task :module:packageDebug
+> Task :module:createDebugApkListingFileRedirect UP-TO-DATE
+
+> Task :module:installDebug
+Installing APK 'conduIT.apk' on 'SM-A566B - 16' for :module:debug
+Installed on 1 device.
+
+BUILD SUCCESSFUL in 44s
+43 actionable tasks: 7 executed, 36 up-to-date
+Restarting app...
+Starting: Intent { cmp=com.example.mrbill/com.sms.edgenode.ui.MainActivity }
+App deployed and restarted!
+=== Deploy ended at  4 Mei 2026 03:00:55 alasiri EAT ===
+=== Deploy started at  4 Mei 2026 03:11:46 alasiri EAT ===
+Building and installing to device...
+To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/8.13/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+Daemon will be stopped at the end of the build 
+> Task :module:checkKotlinGradlePluginConfigurationErrors
+> Task :module:preBuild UP-TO-DATE
+> Task :module:preDebugBuild UP-TO-DATE
+> Task :module:checkDebugAarMetadata UP-TO-DATE
+> Task :module:processDebugNavigationResources UP-TO-DATE
+> Task :module:compileDebugNavigationResources UP-TO-DATE
+> Task :module:generateDebugResValues UP-TO-DATE
+> Task :module:injectCrashlyticsMappingFileIdDebug UP-TO-DATE
+> Task :module:processDebugGoogleServices UP-TO-DATE
+> Task :module:mapDebugSourceSetPaths UP-TO-DATE
+> Task :module:generateDebugResources UP-TO-DATE
+> Task :module:mergeDebugResources UP-TO-DATE
+> Task :module:packageDebugResources UP-TO-DATE
+> Task :module:parseDebugLocalResources UP-TO-DATE
+> Task :module:createDebugCompatibleScreenManifests UP-TO-DATE
+> Task :module:extractDeepLinksDebug UP-TO-DATE
+> Task :module:processDebugMainManifest UP-TO-DATE
+> Task :module:processDebugManifest UP-TO-DATE
+> Task :module:processDebugManifestForPackage UP-TO-DATE
+> Task :module:processDebugResources UP-TO-DATE
+> Task :module:javaPreCompileDebug UP-TO-DATE
+> Task :module:mergeDebugShaders UP-TO-DATE
+> Task :module:compileDebugShaders NO-SOURCE
+> Task :module:generateDebugAssets UP-TO-DATE
+> Task :module:mergeDebugAssets UP-TO-DATE
+> Task :module:compressDebugAssets UP-TO-DATE
+> Task :module:desugarDebugFileDependencies UP-TO-DATE
+> Task :module:checkDebugDuplicateClasses UP-TO-DATE
+> Task :module:mergeExtDexDebug UP-TO-DATE
+> Task :module:mergeLibDexDebug UP-TO-DATE
+> Task :module:mergeDebugJniLibFolders UP-TO-DATE
+> Task :module:mergeDebugNativeLibs UP-TO-DATE
+> Task :module:stripDebugDebugSymbols UP-TO-DATE
+> Task :module:validateSigningDebug UP-TO-DATE
+> Task :module:writeDebugAppMetadata UP-TO-DATE
+> Task :module:writeDebugSigningConfigVersions UP-TO-DATE
+> Task :module:kspDebugKotlin
+
+> Task :module:compileDebugKotlin
+w: file:///home/nomad/Desktop/work/Conduit/app/module/src/main/java/com/sms/edgenode/control/FcmService.kt:41:54 Type mismatch: inferred type is Nothing? but String was expected
+w: file:///home/nomad/Desktop/work/Conduit/app/module/src/main/java/com/sms/edgenode/control/FcmService.kt:43:69 Type mismatch: inferred type is Nothing? but String was expected
+w: file:///home/nomad/Desktop/work/Conduit/app/module/src/main/java/com/sms/edgenode/control/FcmService.kt:46:102 Condition 'encryptedPayload != null' is always 'true'
+w: file:///home/nomad/Desktop/work/Conduit/app/module/src/main/java/com/sms/edgenode/control/FcmService.kt:50:13 Condition 'signature != null' is always 'true'
+w: file:///home/nomad/Desktop/work/Conduit/app/module/src/main/java/com/sms/edgenode/control/FcmService.kt:50:34 Condition 'encryptedPayload != null' is always 'true'
+w: file:///home/nomad/Desktop/work/Conduit/app/module/src/main/java/com/sms/edgenode/control/FcmService.kt:90:76 Condition 'signature != null' is always 'true'
+w: file:///home/nomad/Desktop/work/Conduit/app/module/src/main/java/com/sms/edgenode/control/FcmService.kt:90:106 Condition 'encryptedPayload != null' is always 'true'
+
+> Task :module:compileDebugJavaWithJavac UP-TO-DATE
+> Task :module:dexBuilderDebug
+> Task :module:mergeDebugGlobalSynthetics UP-TO-DATE
+> Task :module:processDebugJavaRes UP-TO-DATE
+> Task :module:mergeDebugJavaResource UP-TO-DATE
+> Task :module:mergeProjectDexDebug
+> Task :module:packageDebug
+> Task :module:createDebugApkListingFileRedirect UP-TO-DATE
+
+> Task :module:installDebug
+Installing APK 'conduIT.apk' on 'SM-A566B - 16' for :module:debug
+Installed on 1 device.
+
+BUILD SUCCESSFUL in 49s
+43 actionable tasks: 7 executed, 36 up-to-date
+Restarting app...
+Starting: Intent { cmp=com.example.mrbill/com.sms.edgenode.ui.MainActivity }
+App deployed and restarted!
+=== Deploy ended at  4 Mei 2026 03:12:37 alasiri EAT ===
+=== Deploy started at  4 Mei 2026 03:26:46 alasiri EAT ===
+Building and installing to device...
+To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/8.13/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+Daemon will be stopped at the end of the build 
+> Task :module:checkKotlinGradlePluginConfigurationErrors
+> Task :module:preBuild UP-TO-DATE
+> Task :module:preDebugBuild UP-TO-DATE
+> Task :module:checkDebugAarMetadata UP-TO-DATE
+> Task :module:processDebugNavigationResources UP-TO-DATE
+> Task :module:compileDebugNavigationResources UP-TO-DATE
+> Task :module:generateDebugResValues UP-TO-DATE
+> Task :module:injectCrashlyticsMappingFileIdDebug UP-TO-DATE
+> Task :module:processDebugGoogleServices UP-TO-DATE
+> Task :module:mapDebugSourceSetPaths UP-TO-DATE
+> Task :module:generateDebugResources UP-TO-DATE
+> Task :module:mergeDebugResources UP-TO-DATE
+> Task :module:packageDebugResources UP-TO-DATE
+> Task :module:parseDebugLocalResources UP-TO-DATE
+> Task :module:createDebugCompatibleScreenManifests UP-TO-DATE
+> Task :module:extractDeepLinksDebug UP-TO-DATE
+> Task :module:processDebugMainManifest UP-TO-DATE
+> Task :module:processDebugManifest UP-TO-DATE
+> Task :module:processDebugManifestForPackage UP-TO-DATE
+> Task :module:processDebugResources UP-TO-DATE
+> Task :module:javaPreCompileDebug UP-TO-DATE
+> Task :module:mergeDebugShaders UP-TO-DATE
+> Task :module:compileDebugShaders NO-SOURCE
+> Task :module:generateDebugAssets UP-TO-DATE
+> Task :module:mergeDebugAssets UP-TO-DATE
+> Task :module:compressDebugAssets UP-TO-DATE
+> Task :module:desugarDebugFileDependencies UP-TO-DATE
+> Task :module:checkDebugDuplicateClasses UP-TO-DATE
+> Task :module:mergeExtDexDebug UP-TO-DATE
+> Task :module:mergeLibDexDebug UP-TO-DATE
+> Task :module:mergeDebugJniLibFolders UP-TO-DATE
+> Task :module:mergeDebugNativeLibs UP-TO-DATE
+> Task :module:stripDebugDebugSymbols UP-TO-DATE
+> Task :module:validateSigningDebug UP-TO-DATE
+> Task :module:writeDebugAppMetadata UP-TO-DATE
+> Task :module:writeDebugSigningConfigVersions UP-TO-DATE
+> Task :module:kspDebugKotlin
+> Task :module:compileDebugKotlin
+> Task :module:compileDebugJavaWithJavac UP-TO-DATE
+> Task :module:dexBuilderDebug
+> Task :module:mergeDebugGlobalSynthetics UP-TO-DATE
+> Task :module:processDebugJavaRes UP-TO-DATE
+> Task :module:mergeDebugJavaResource UP-TO-DATE
+> Task :module:mergeProjectDexDebug
+> Task :module:packageDebug
+> Task :module:createDebugApkListingFileRedirect UP-TO-DATE
+
+> Task :module:installDebug
+Installing APK 'conduIT.apk' on 'SM-A566B - 16' for :module:debug
+Installed on 1 device.
+
+BUILD SUCCESSFUL in 47s
+43 actionable tasks: 7 executed, 36 up-to-date
+Restarting app...
+Starting: Intent { cmp=com.example.mrbill/com.sms.edgenode.ui.MainActivity }
+App deployed and restarted!
+=== Deploy ended at  4 Mei 2026 03:27:34 alasiri EAT ===
+=== Deploy started at  4 Mei 2026 03:32:00 alasiri EAT ===
+Building and installing to device...
+To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/8.13/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+Daemon will be stopped at the end of the build 
+> Task :module:checkKotlinGradlePluginConfigurationErrors
+> Task :module:preBuild UP-TO-DATE
+> Task :module:preDebugBuild UP-TO-DATE
+> Task :module:checkDebugAarMetadata UP-TO-DATE
+> Task :module:processDebugNavigationResources UP-TO-DATE
+> Task :module:compileDebugNavigationResources UP-TO-DATE
+> Task :module:generateDebugResValues UP-TO-DATE
+> Task :module:injectCrashlyticsMappingFileIdDebug UP-TO-DATE
+> Task :module:processDebugGoogleServices UP-TO-DATE
+> Task :module:mapDebugSourceSetPaths UP-TO-DATE
+> Task :module:generateDebugResources UP-TO-DATE
+> Task :module:mergeDebugResources UP-TO-DATE
+> Task :module:packageDebugResources UP-TO-DATE
+> Task :module:parseDebugLocalResources UP-TO-DATE
+> Task :module:createDebugCompatibleScreenManifests UP-TO-DATE
+> Task :module:extractDeepLinksDebug UP-TO-DATE
+> Task :module:processDebugMainManifest UP-TO-DATE
+> Task :module:processDebugManifest UP-TO-DATE
+> Task :module:processDebugManifestForPackage UP-TO-DATE
+> Task :module:processDebugResources UP-TO-DATE
+> Task :module:javaPreCompileDebug UP-TO-DATE
+> Task :module:mergeDebugShaders UP-TO-DATE
+> Task :module:compileDebugShaders NO-SOURCE
+> Task :module:generateDebugAssets UP-TO-DATE
+> Task :module:mergeDebugAssets UP-TO-DATE
+> Task :module:compressDebugAssets UP-TO-DATE
+> Task :module:desugarDebugFileDependencies UP-TO-DATE
+> Task :module:checkDebugDuplicateClasses UP-TO-DATE
+> Task :module:mergeExtDexDebug UP-TO-DATE
+> Task :module:mergeLibDexDebug UP-TO-DATE
+> Task :module:mergeDebugJniLibFolders UP-TO-DATE
+> Task :module:mergeDebugNativeLibs UP-TO-DATE
+> Task :module:stripDebugDebugSymbols UP-TO-DATE
+> Task :module:validateSigningDebug UP-TO-DATE
+> Task :module:writeDebugAppMetadata UP-TO-DATE
+> Task :module:writeDebugSigningConfigVersions UP-TO-DATE
+> Task :module:kspDebugKotlin
+> Task :module:compileDebugKotlin
+> Task :module:compileDebugJavaWithJavac UP-TO-DATE
+> Task :module:dexBuilderDebug
+> Task :module:mergeDebugGlobalSynthetics UP-TO-DATE
+> Task :module:processDebugJavaRes UP-TO-DATE
+> Task :module:mergeDebugJavaResource UP-TO-DATE
+> Task :module:mergeProjectDexDebug
+> Task :module:packageDebug
+> Task :module:createDebugApkListingFileRedirect UP-TO-DATE
+
+> Task :module:installDebug
+Installing APK 'conduIT.apk' on 'SM-A566B - 16' for :module:debug
+Installed on 1 device.
+
+BUILD SUCCESSFUL in 46s
+43 actionable tasks: 7 executed, 36 up-to-date
+Restarting app...
+Starting: Intent { cmp=com.example.mrbill/com.sms.edgenode.ui.MainActivity }
+App deployed and restarted!
+=== Deploy ended at  4 Mei 2026 03:32:48 alasiri EAT ===
+=== Deploy started at  4 Mei 2026 03:35:58 alasiri EAT ===
+Building and installing to device...
+To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/8.13/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+Daemon will be stopped at the end of the build 
+> Task :module:checkKotlinGradlePluginConfigurationErrors
+> Task :module:preBuild UP-TO-DATE
+> Task :module:preDebugBuild UP-TO-DATE
+> Task :module:checkDebugAarMetadata UP-TO-DATE
+> Task :module:processDebugNavigationResources UP-TO-DATE
+> Task :module:compileDebugNavigationResources UP-TO-DATE
+> Task :module:generateDebugResValues UP-TO-DATE
+> Task :module:injectCrashlyticsMappingFileIdDebug UP-TO-DATE
+> Task :module:processDebugGoogleServices UP-TO-DATE
+> Task :module:mapDebugSourceSetPaths UP-TO-DATE
+> Task :module:generateDebugResources UP-TO-DATE
+> Task :module:mergeDebugResources UP-TO-DATE
+> Task :module:packageDebugResources UP-TO-DATE
+> Task :module:parseDebugLocalResources UP-TO-DATE
+> Task :module:createDebugCompatibleScreenManifests UP-TO-DATE
+> Task :module:extractDeepLinksDebug UP-TO-DATE
+> Task :module:processDebugMainManifest UP-TO-DATE
+> Task :module:processDebugManifest UP-TO-DATE
+> Task :module:processDebugManifestForPackage UP-TO-DATE
+> Task :module:processDebugResources UP-TO-DATE
+> Task :module:javaPreCompileDebug UP-TO-DATE
+> Task :module:mergeDebugShaders UP-TO-DATE
+> Task :module:compileDebugShaders NO-SOURCE
+> Task :module:generateDebugAssets UP-TO-DATE
+> Task :module:mergeDebugAssets UP-TO-DATE
+> Task :module:compressDebugAssets UP-TO-DATE
+> Task :module:desugarDebugFileDependencies UP-TO-DATE
+> Task :module:checkDebugDuplicateClasses UP-TO-DATE
+> Task :module:mergeExtDexDebug UP-TO-DATE
+> Task :module:mergeLibDexDebug UP-TO-DATE
+> Task :module:mergeDebugJniLibFolders UP-TO-DATE
+> Task :module:mergeDebugNativeLibs UP-TO-DATE
+> Task :module:stripDebugDebugSymbols UP-TO-DATE
+> Task :module:validateSigningDebug UP-TO-DATE
+> Task :module:writeDebugAppMetadata UP-TO-DATE
+> Task :module:writeDebugSigningConfigVersions UP-TO-DATE
+> Task :module:kspDebugKotlin
+> Task :module:compileDebugKotlin
+> Task :module:compileDebugJavaWithJavac UP-TO-DATE
+> Task :module:dexBuilderDebug
+> Task :module:mergeDebugGlobalSynthetics UP-TO-DATE
+> Task :module:processDebugJavaRes UP-TO-DATE
+> Task :module:mergeDebugJavaResource UP-TO-DATE
+> Task :module:mergeProjectDexDebug
+> Task :module:packageDebug
+> Task :module:createDebugApkListingFileRedirect UP-TO-DATE
+
+> Task :module:installDebug
+Installing APK 'conduIT.apk' on 'SM-A566B - 16' for :module:debug
+Installed on 1 device.
+
+BUILD SUCCESSFUL in 47s
+43 actionable tasks: 7 executed, 36 up-to-date
+Restarting app...
+Starting: Intent { cmp=com.example.mrbill/com.sms.edgenode.ui.MainActivity }
+App deployed and restarted!
+=== Deploy ended at  4 Mei 2026 03:36:47 alasiri EAT ===
+=== Deploy started at  4 Mei 2026 03:41:42 alasiri EAT ===
+Building and installing to device...
+To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/8.13/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+Daemon will be stopped at the end of the build 
+> Task :module:checkKotlinGradlePluginConfigurationErrors
+> Task :module:preBuild UP-TO-DATE
+> Task :module:preDebugBuild UP-TO-DATE
+> Task :module:checkDebugAarMetadata UP-TO-DATE
+> Task :module:processDebugNavigationResources UP-TO-DATE
+> Task :module:compileDebugNavigationResources UP-TO-DATE
+> Task :module:generateDebugResValues UP-TO-DATE
+> Task :module:injectCrashlyticsMappingFileIdDebug UP-TO-DATE
+> Task :module:processDebugGoogleServices UP-TO-DATE
+> Task :module:mapDebugSourceSetPaths UP-TO-DATE
+> Task :module:generateDebugResources UP-TO-DATE
+> Task :module:mergeDebugResources UP-TO-DATE
+> Task :module:packageDebugResources UP-TO-DATE
+> Task :module:parseDebugLocalResources UP-TO-DATE
+> Task :module:createDebugCompatibleScreenManifests UP-TO-DATE
+> Task :module:extractDeepLinksDebug UP-TO-DATE
+> Task :module:processDebugMainManifest UP-TO-DATE
+> Task :module:processDebugManifest UP-TO-DATE
+> Task :module:processDebugManifestForPackage UP-TO-DATE
+> Task :module:processDebugResources UP-TO-DATE
+> Task :module:kspDebugKotlin UP-TO-DATE
+> Task :module:compileDebugKotlin UP-TO-DATE
+> Task :module:javaPreCompileDebug UP-TO-DATE
+> Task :module:compileDebugJavaWithJavac UP-TO-DATE
+> Task :module:mergeDebugShaders UP-TO-DATE
+> Task :module:compileDebugShaders NO-SOURCE
+> Task :module:generateDebugAssets UP-TO-DATE
+> Task :module:mergeDebugAssets UP-TO-DATE
+> Task :module:compressDebugAssets UP-TO-DATE
+> Task :module:desugarDebugFileDependencies UP-TO-DATE
+> Task :module:dexBuilderDebug UP-TO-DATE
+> Task :module:mergeDebugGlobalSynthetics UP-TO-DATE
+> Task :module:processDebugJavaRes UP-TO-DATE
+> Task :module:mergeDebugJavaResource UP-TO-DATE
+> Task :module:checkDebugDuplicateClasses UP-TO-DATE
+> Task :module:mergeExtDexDebug UP-TO-DATE
+> Task :module:mergeLibDexDebug UP-TO-DATE
+> Task :module:mergeProjectDexDebug UP-TO-DATE
+> Task :module:mergeDebugJniLibFolders UP-TO-DATE
+> Task :module:mergeDebugNativeLibs UP-TO-DATE
+> Task :module:stripDebugDebugSymbols UP-TO-DATE
+> Task :module:validateSigningDebug UP-TO-DATE
+> Task :module:writeDebugAppMetadata UP-TO-DATE
+> Task :module:writeDebugSigningConfigVersions UP-TO-DATE
+> Task :module:packageDebug UP-TO-DATE
+> Task :module:createDebugApkListingFileRedirect UP-TO-DATE
+
+> Task :module:installDebug
+Installing APK 'conduIT.apk' on 'SM-A115F - 12' for :module:debug
+Installed on 1 device.
+
+BUILD SUCCESSFUL in 27s
+43 actionable tasks: 2 executed, 41 up-to-date
+Restarting app...
+Starting: Intent { cmp=com.example.mrbill/com.sms.edgenode.ui.MainActivity }
+App deployed and restarted!
+=== Deploy ended at  4 Mei 2026 03:42:13 alasiri EAT ===
+=== Deploy started at  4 Mei 2026 03:51:43 alasiri EAT ===
+Building and installing to device...
+To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/8.13/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+Daemon will be stopped at the end of the build 
+> Task :module:checkKotlinGradlePluginConfigurationErrors
+> Task :module:preBuild UP-TO-DATE
+> Task :module:preDebugBuild UP-TO-DATE
+> Task :module:checkDebugAarMetadata UP-TO-DATE
+> Task :module:processDebugNavigationResources UP-TO-DATE
+> Task :module:compileDebugNavigationResources UP-TO-DATE
+> Task :module:generateDebugResValues UP-TO-DATE
+> Task :module:injectCrashlyticsMappingFileIdDebug UP-TO-DATE
+> Task :module:processDebugGoogleServices UP-TO-DATE
+> Task :module:mapDebugSourceSetPaths UP-TO-DATE
+> Task :module:generateDebugResources UP-TO-DATE
+> Task :module:mergeDebugResources UP-TO-DATE
+> Task :module:packageDebugResources UP-TO-DATE
+> Task :module:parseDebugLocalResources UP-TO-DATE
+> Task :module:createDebugCompatibleScreenManifests UP-TO-DATE
+> Task :module:extractDeepLinksDebug UP-TO-DATE
+> Task :module:processDebugMainManifest UP-TO-DATE
+> Task :module:processDebugManifest UP-TO-DATE
+> Task :module:processDebugManifestForPackage UP-TO-DATE
+> Task :module:processDebugResources UP-TO-DATE
+> Task :module:javaPreCompileDebug UP-TO-DATE
+> Task :module:mergeDebugShaders UP-TO-DATE
+> Task :module:compileDebugShaders NO-SOURCE
+> Task :module:generateDebugAssets UP-TO-DATE
+> Task :module:mergeDebugAssets UP-TO-DATE
+> Task :module:compressDebugAssets UP-TO-DATE
+> Task :module:desugarDebugFileDependencies UP-TO-DATE
+> Task :module:checkDebugDuplicateClasses UP-TO-DATE
+> Task :module:mergeExtDexDebug UP-TO-DATE
+> Task :module:mergeLibDexDebug UP-TO-DATE
+> Task :module:mergeDebugJniLibFolders UP-TO-DATE
+> Task :module:mergeDebugNativeLibs UP-TO-DATE
+> Task :module:stripDebugDebugSymbols UP-TO-DATE
+> Task :module:validateSigningDebug UP-TO-DATE
+> Task :module:writeDebugAppMetadata UP-TO-DATE
+> Task :module:writeDebugSigningConfigVersions UP-TO-DATE
+> Task :module:kspDebugKotlin
+> Task :module:compileDebugKotlin
+> Task :module:compileDebugJavaWithJavac UP-TO-DATE
+> Task :module:dexBuilderDebug
+> Task :module:mergeDebugGlobalSynthetics UP-TO-DATE
+> Task :module:processDebugJavaRes UP-TO-DATE
+> Task :module:mergeDebugJavaResource UP-TO-DATE
+> Task :module:mergeProjectDexDebug
+> Task :module:packageDebug
+> Task :module:createDebugApkListingFileRedirect UP-TO-DATE
+
+> Task :module:installDebug
+Installing APK 'conduIT.apk' on 'SM-A115F - 12' for :module:debug
+Installed on 1 device.
+
+BUILD SUCCESSFUL in 37s
+43 actionable tasks: 7 executed, 36 up-to-date
+Restarting app...
+Starting: Intent { cmp=com.example.mrbill/com.sms.edgenode.ui.MainActivity }
+App deployed and restarted!
+=== Deploy ended at  4 Mei 2026 03:52:22 alasiri EAT ===
+=== Deploy started at  4 Mei 2026 04:00:21 alasiri EAT ===
+Building and installing to device...
+To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/8.13/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+Daemon will be stopped at the end of the build 
+> Task :module:checkKotlinGradlePluginConfigurationErrors
+> Task :module:preBuild UP-TO-DATE
+> Task :module:preDebugBuild UP-TO-DATE
+> Task :module:checkDebugAarMetadata UP-TO-DATE
+> Task :module:processDebugNavigationResources UP-TO-DATE
+> Task :module:compileDebugNavigationResources UP-TO-DATE
+> Task :module:generateDebugResValues UP-TO-DATE
+> Task :module:injectCrashlyticsMappingFileIdDebug UP-TO-DATE
+> Task :module:processDebugGoogleServices UP-TO-DATE
+> Task :module:mapDebugSourceSetPaths UP-TO-DATE
+> Task :module:generateDebugResources UP-TO-DATE
+> Task :module:mergeDebugResources UP-TO-DATE
+> Task :module:packageDebugResources UP-TO-DATE
+> Task :module:parseDebugLocalResources UP-TO-DATE
+> Task :module:createDebugCompatibleScreenManifests UP-TO-DATE
+> Task :module:extractDeepLinksDebug UP-TO-DATE
+> Task :module:processDebugMainManifest UP-TO-DATE
+> Task :module:processDebugManifest UP-TO-DATE
+> Task :module:processDebugManifestForPackage UP-TO-DATE
+> Task :module:processDebugResources UP-TO-DATE
+> Task :module:javaPreCompileDebug UP-TO-DATE
+> Task :module:mergeDebugShaders UP-TO-DATE
+> Task :module:compileDebugShaders NO-SOURCE
+> Task :module:generateDebugAssets UP-TO-DATE
+> Task :module:mergeDebugAssets UP-TO-DATE
+> Task :module:compressDebugAssets UP-TO-DATE
+> Task :module:desugarDebugFileDependencies UP-TO-DATE
+> Task :module:checkDebugDuplicateClasses UP-TO-DATE
+> Task :module:mergeExtDexDebug UP-TO-DATE
+> Task :module:mergeLibDexDebug UP-TO-DATE
+> Task :module:mergeDebugJniLibFolders UP-TO-DATE
+> Task :module:mergeDebugNativeLibs UP-TO-DATE
+> Task :module:stripDebugDebugSymbols UP-TO-DATE
+> Task :module:validateSigningDebug UP-TO-DATE
+> Task :module:writeDebugAppMetadata UP-TO-DATE
+> Task :module:writeDebugSigningConfigVersions UP-TO-DATE
+> Task :module:kspDebugKotlin
+
+> Task :module:compileDebugKotlin
+w: file:///home/nomad/Desktop/work/Conduit/app/module/src/main/java/com/sms/edgenode/control/FcmService.kt:41:54 Type mismatch: inferred type is Nothing? but String was expected
+w: file:///home/nomad/Desktop/work/Conduit/app/module/src/main/java/com/sms/edgenode/control/FcmService.kt:43:69 Type mismatch: inferred type is Nothing? but String was expected
+w: file:///home/nomad/Desktop/work/Conduit/app/module/src/main/java/com/sms/edgenode/control/FcmService.kt:46:102 Condition 'encryptedPayload != null' is always 'true'
+w: file:///home/nomad/Desktop/work/Conduit/app/module/src/main/java/com/sms/edgenode/control/FcmService.kt:50:13 Condition 'signature != null' is always 'true'
+w: file:///home/nomad/Desktop/work/Conduit/app/module/src/main/java/com/sms/edgenode/control/FcmService.kt:50:34 Condition 'encryptedPayload != null' is always 'true'
+w: file:///home/nomad/Desktop/work/Conduit/app/module/src/main/java/com/sms/edgenode/control/FcmService.kt:96:76 Condition 'signature != null' is always 'true'
+w: file:///home/nomad/Desktop/work/Conduit/app/module/src/main/java/com/sms/edgenode/control/FcmService.kt:96:106 Condition 'encryptedPayload != null' is always 'true'
+
+> Task :module:compileDebugJavaWithJavac UP-TO-DATE
+> Task :module:dexBuilderDebug
+> Task :module:mergeDebugGlobalSynthetics UP-TO-DATE
+> Task :module:processDebugJavaRes UP-TO-DATE
+> Task :module:mergeDebugJavaResource UP-TO-DATE
+> Task :module:mergeProjectDexDebug
+> Task :module:packageDebug
+> Task :module:createDebugApkListingFileRedirect UP-TO-DATE
+
+> Task :module:installDebug
+Installing APK 'conduIT.apk' on 'SM-A566B - 16' for :module:debug
+Installed on 1 device.
+
+BUILD SUCCESSFUL in 33s
+43 actionable tasks: 7 executed, 36 up-to-date
+Restarting app...
+Starting: Intent { cmp=com.example.mrbill/com.sms.edgenode.ui.MainActivity }
+App deployed and restarted!
+=== Deploy ended at  4 Mei 2026 04:00:55 alasiri EAT ===

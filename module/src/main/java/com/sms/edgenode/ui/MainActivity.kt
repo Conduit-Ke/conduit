@@ -198,7 +198,7 @@ fun AppNavigation() {
             "main" -> MainApp(onLogout = {
                 scope.launch {
                     authService.logout()
-                    deviceService.clear()
+                    deviceService.clearAll()
                     com.sms.edgenode.service.RoutingService.stop(context)
                     navigationState = "login"
                 }

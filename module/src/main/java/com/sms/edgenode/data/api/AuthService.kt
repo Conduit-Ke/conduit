@@ -7,7 +7,14 @@ import androidx.security.crypto.MasterKey
 import kotlinx.serialization.Serializable
 
 /**
- * Authentication service for login, OTP verification, and token management.
+ * Authentication service for V2 API.
+ *
+ * V2 Auth Flow:
+ *   1. POST /mobile/login  → always returns { session_id, otp_required: true }
+ *   2. POST /mobile/verify_otp  → { session_id, otp } → returns JWT tokens
+ *   3. POST /mobile/refresh  → { refresh_token } → returns new JWT tokens
+ *   4. POST /mobile/logout   → { refresh_token } → revokes tokens
+ *
  * Tokens are securely stored in EncryptedSharedPreferences.
  */
 class AuthService(private val context: Context) {
@@ -31,8 +38,10 @@ class AuthService(private val context: Context) {
         private const val KEY_REFRESH_TOKEN = "refresh_token"
         private const val KEY_TOKEN_EXPIRY = "token_expiry"
         private const val KEY_USER_ID = "user_id"
+        private const val KEY_USER_PUBLIC_ID = "user_public_id"
         private const val KEY_USER_EMAIL = "user_email"
         private const val KEY_ORG_ID = "organization_id"
+        private const val KEY_ORG_PUBLIC_ID = "organization_public_id"
         private const val KEY_PREFERRED_SIM = "preferred_sim"
         private const val KEY_SMART_FAILOVER = "smart_failover"
         private const val KEY_CONTROL_SECRET = "control_security_key"
@@ -48,36 +57,76 @@ class AuthService(private val context: Context) {
         private const val KEY_SERVICE_DISABLED = "service_disabled_by_user"
     }
     
-    @Serializable
-    data class LoginResponse(
-        val otp_required: Boolean = false,
-        val user_id: Int? = null,
-        val email: String? = null,
-        val message: String? = null,
-        val error: String? = null
-    )
+    // ── V2 Response Models ──
     
+    /**
+     * V2 Login/Register response — always returns session_id for OTP flow.
+     * The API never returns tokens directly from login.
+     */
     @Serializable
-    data class TokenResponse(
-        val access_token: String? = null,
-        val token_type: String? = null,
+    data class OtpResponse(
+        val otp_required: Boolean = true,
+        val session_id: String? = null,
         val expires_in: Long? = null,
-        val refresh_token: String? = null,
-        val organization_id: Int? = null,
-        val control_security_key: String? = null,
-        val error: String? = null
-    )
-    
-    @Serializable
-    data class ProvisioningResponse(
-        val control_security_key: String? = null,
-        val error: String? = null
+        val message: String? = null
     )
     
     /**
-     * Step 1: Login with email/password. Returns user_id if OTP required.
+     * V2 Token response — returned after OTP verification or token refresh.
      */
-    suspend fun login(email: String, password: String): Result<LoginResponse> {
+    @Serializable
+    data class TokenResponse(
+        val access_token: String? = null,
+        val refresh_token: String? = null,
+        val token_type: String? = null,
+        val expires_in: Long? = null,
+        val user_id: Long? = null,
+        val user_public_id: String? = null,
+        val organization_id: Long? = null,
+        val organization_public_id: String? = null
+    )
+    
+    /**
+     * V2 Provisioning response — contains org encryption keys.
+     */
+    @Serializable
+    data class ProvisioningResponse(
+        val organization_public_id: String? = null,
+        val control_security_key: String? = null,
+        val webhook_signing_key: String? = null,
+        val key_version: Int? = null
+    )
+
+    /**
+     * V2 User profile response.
+     */
+    @Serializable
+    data class UserProfile(
+        val id: Long,
+        val public_id: String? = null,
+        val email: String,
+        val name: String? = null,
+        val organization_id: Long? = null,
+        val organization_public_id: String? = null,
+        val scopes: List<String> = emptyList()
+    )
+
+    /**
+     * V2 Action response for logout, etc.
+     */
+    @Serializable
+    data class ActionResponse(
+        val status: String? = null,
+        val message: String? = null
+    )
+    
+    // ── Auth Operations ──
+    
+    /**
+     * Step 1: Login with email/password.
+     * V2 always requires OTP — returns a session_id (UUID) to use in verify_otp.
+     */
+    suspend fun login(email: String, password: String): Result<OtpResponse> {
         val response = HttpClient.post(
             ApiConfig.Endpoints.LOGIN,
             mapOf("email" to email, "password" to password)
@@ -85,42 +134,43 @@ class AuthService(private val context: Context) {
         android.util.Log.d("AuthService", "Login response: ${response.body}")
         
         return if (response.success) {
-            val body = response.body
-            if (body.contains("access_token")) {
-                HttpClient.parseResponse<TokenResponse>(response)?.let { tokenResponse ->
-                    saveTokens(tokenResponse)
-                    // We don't have user_id here but we can at least return a successful LoginResponse
-                    Result.success(LoginResponse(otp_required = false))
-                } ?: Result.failure(Exception("Failed to parse token response"))
-            } else {
-                HttpClient.parseResponse<LoginResponse>(response)?.let {
-                    Result.success(it)
-                } ?: Result.failure(Exception("Failed to parse response"))
-            }
+            HttpClient.parseV2Response<OtpResponse>(response)?.let {
+                Result.success(it)
+            } ?: Result.failure(Exception("Failed to parse login response"))
         } else {
-            val error = try {
-                kotlinx.serialization.json.Json.decodeFromString<LoginResponse>(response.body)
-            } catch (e: Exception) { null }
-            Result.failure(Exception(error?.error ?: "Login failed: ${response.code}"))
+            val errorMsg = extractV2Error(response.body) ?: "Login failed: ${response.code}"
+            Result.failure(Exception(errorMsg))
         }
     }
 
-    @Serializable
-    data class UserProfile(
-        val id: Int,
-        val email: String,
-        val organization_id: Int? = null,
-        val organization: Organization? = null
-    )
+    /**
+     * Step 2: Verify OTP with session_id and 6-digit code.
+     * Returns JWT access_token + refresh_token + org info.
+     */
+    suspend fun verifyOtp(sessionId: String, otp: String): Result<TokenResponse> {
+        val response = HttpClient.post(
+            ApiConfig.Endpoints.VERIFY_OTP,
+            mapOf("session_id" to sessionId, "otp" to otp)
+        )
+        android.util.Log.d("AuthService", "Verify OTP response: ${response.body}")
+        
+        return if (response.success) {
+            HttpClient.parseV2Response<TokenResponse>(response)?.let { tokenResponse ->
+                saveTokens(tokenResponse)
+                
+                // Fetch provisioning data (security keys) after authentication
+                fetchProvisioning()
 
-    @Serializable
-    data class Organization(
-        val id: Int,
-        val name: String
-    )
+                Result.success(tokenResponse)
+            } ?: Result.failure(Exception("Failed to parse token response"))
+        } else {
+            val errorMsg = extractV2Error(response.body) ?: "OTP verification failed: ${response.code}"
+            Result.failure(Exception(errorMsg))
+        }
+    }
 
     /**
-     * Fetch user profile to get organization ID.
+     * Fetch user profile to get organization and scope info.
      */
     suspend fun fetchUserProfile(): Result<UserProfile> {
         val token = getAccessToken() ?: return Result.failure(Exception("No access token"))
@@ -128,61 +178,18 @@ class AuthService(private val context: Context) {
         android.util.Log.d("AuthService", "Profile response: ${response.body}")
 
         return if (response.success) {
-            HttpClient.parseResponse<UserProfile>(response)?.let { profile ->
-                val orgId = profile.organization_id ?: profile.organization?.id
-                orgId?.let { 
-                    android.util.Log.d("AuthService", "Fetched organizationId: $it")
-                    setOrganizationId(it) 
+            HttpClient.parseV2Response<UserProfile>(response)?.let { profile ->
+                profile.organization_id?.let { orgId ->
+                    android.util.Log.d("AuthService", "Fetched organizationId: $orgId")
+                    setOrganizationId(orgId)
+                }
+                profile.organization_public_id?.let { pubId ->
+                    setOrganizationPublicId(pubId)
                 }
                 Result.success(profile)
             } ?: Result.failure(Exception("Failed to parse profile"))
         } else {
             Result.failure(Exception("Failed to fetch profile: ${response.code}"))
-        }
-    }
-    
-    /**
-     * Step 2: Verify OTP and get JWT token.
-     */
-    suspend fun verifyOtp(userId: Int, otp: String): Result<TokenResponse> {
-        val response = HttpClient.post(
-            ApiConfig.Endpoints.VERIFY_OTP,
-            mapOf("user_id" to userId.toString(), "otp" to otp)
-        )
-        android.util.Log.d("AuthService", "Verify OTP response: ${response.body}")
-        
-        return if (response.success) {
-            HttpClient.parseResponse<TokenResponse>(response)?.let { tokenResponse ->
-                // Store tokens securely
-                saveTokens(tokenResponse)
-                
-                // Fetch provisioning data (security keys) independently
-                fetchProvisioning()
-
-                prefs.edit().putInt(KEY_USER_ID, userId).apply()
-                Result.success(tokenResponse)
-            } ?: Result.failure(Exception("Failed to parse token response"))
-        } else {
-            val error = try {
-                kotlinx.serialization.json.Json.decodeFromString<TokenResponse>(response.body)
-            } catch (e: Exception) { null }
-            Result.failure(Exception(error?.error ?: "OTP verification failed: ${response.code}"))
-        }
-    }
-    
-    /**
-     * Resend OTP.
-     */
-    suspend fun resendOtp(userId: Int): Result<String> {
-        val response = HttpClient.post(
-            ApiConfig.Endpoints.RESEND_OTP,
-            mapOf("user_id" to userId.toString())
-        )
-        
-        return if (response.success) {
-            Result.success("OTP sent successfully")
-        } else {
-            Result.failure(Exception("Failed to resend OTP"))
         }
     }
     
@@ -194,12 +201,11 @@ class AuthService(private val context: Context) {
         
         val response = HttpClient.post(
             ApiConfig.Endpoints.REFRESH,
-            mapOf("refresh_token" to refreshToken),
-            getAccessToken()
+            mapOf("refresh_token" to refreshToken)
         )
         
         return if (response.success) {
-            HttpClient.parseResponse<TokenResponse>(response)?.let { tokenResponse ->
+            HttpClient.parseV2Response<TokenResponse>(response)?.let { tokenResponse ->
                 saveTokens(tokenResponse)
                 fetchProvisioning()
                 Result.success(tokenResponse)
@@ -221,10 +227,13 @@ class AuthService(private val context: Context) {
         val response = HttpClient.get(ApiConfig.Endpoints.PROVISIONING, token)
         
         return if (response.success) {
-            HttpClient.parseResponse<ProvisioningResponse>(response)?.let { provisioning ->
+            HttpClient.parseV2Response<ProvisioningResponse>(response)?.let { provisioning ->
                 provisioning.control_security_key?.let { key ->
                     android.util.Log.d("AuthService", "Received control security key via Provisioning")
                     setControlSecurityKey(key)
+                }
+                provisioning.organization_public_id?.let { pubId ->
+                    setOrganizationPublicId(pubId)
                 }
                 Result.success(provisioning)
             } ?: Result.failure(Exception("Failed to parse provisioning response"))
@@ -234,12 +243,18 @@ class AuthService(private val context: Context) {
     }
 
     /**
-     * Logout - clear all tokens.
+     * Logout — revoke tokens on server and clear local state.
+     * V2 requires refresh_token in the body.
      */
     suspend fun logout(): Result<Boolean> {
         val token = getAccessToken()
-        if (token != null) {
-            HttpClient.post(ApiConfig.Endpoints.LOGOUT, emptyMap(), token)
+        val refreshToken = getRefreshToken()
+        if (token != null && refreshToken != null) {
+            HttpClient.post(
+                ApiConfig.Endpoints.LOGOUT,
+                mapOf("refresh_token" to refreshToken),
+                token
+            )
         }
         clearTokens()
         return Result.success(true)
@@ -249,8 +264,6 @@ class AuthService(private val context: Context) {
      * Check if user is logged in (has valid token).
      */
     fun isLoggedIn(): Boolean {
-        // Logged in if we have an access token (even expired) AND a refresh token
-        // Or if we have a valid access token.
         val hasAccessToken = getAccessToken() != null
         val hasRefreshToken = getRefreshToken() != null
         return hasAccessToken || hasRefreshToken
@@ -265,17 +278,29 @@ class AuthService(private val context: Context) {
         return token != null && (expiry == 0L || System.currentTimeMillis() < expiry)
     }
     
+    // ── Token Accessors ──
+    
     fun getAccessToken(): String? = prefs.getString(KEY_ACCESS_TOKEN, null)
     
     fun getRefreshToken(): String? = prefs.getString(KEY_REFRESH_TOKEN, null)
     
-    fun getUserId(): Int = prefs.getInt(KEY_USER_ID, -1)
+    fun getUserId(): Long = prefs.getLong(KEY_USER_ID, -1L)
+
+    fun getUserPublicId(): String? = prefs.getString(KEY_USER_PUBLIC_ID, null)
     
-    fun getOrganizationId(): Int = prefs.getInt(KEY_ORG_ID, -1)
-    
-    fun setOrganizationId(orgId: Int) {
-        prefs.edit().putInt(KEY_ORG_ID, orgId).apply()
+    fun getOrganizationId(): Long = prefs.getLong(KEY_ORG_ID, -1L)
+
+    fun setOrganizationId(orgId: Long) {
+        prefs.edit().putLong(KEY_ORG_ID, orgId).apply()
     }
+
+    fun getOrganizationPublicId(): String? = prefs.getString(KEY_ORG_PUBLIC_ID, null)
+
+    fun setOrganizationPublicId(pubId: String) {
+        prefs.edit().putString(KEY_ORG_PUBLIC_ID, pubId).apply()
+    }
+
+    // ── Device/SIM Preferences ──
 
     fun getPreferredSimSlot(): Int = prefs.getInt(KEY_PREFERRED_SIM, -1)
 
@@ -290,8 +315,7 @@ class AuthService(private val context: Context) {
     }
 
     fun getControlSecurityKey(): String? {
-        // Return hardcoded placeholder for now, but allow setting it via provisioning
-        return prefs.getString(KEY_CONTROL_SECRET, env_placeholder_key())
+        return prefs.getString(KEY_CONTROL_SECRET, null)
     }
 
     fun setControlSecurityKey(key: String) {
@@ -360,25 +384,41 @@ class AuthService(private val context: Context) {
         prefs.edit().putBoolean(KEY_SERVICE_DISABLED, disabled).apply()
     }
 
-    private fun env_placeholder_key(): String? {
-        // Dynamic Provisioning: Key must now be received via OTP flow.
-        // Returning null forces the system to fail until properly provisioned.
-        return null
+    // ── Internal Helpers ──
+
+    /**
+     * Extract error message from V2 error envelope.
+     * V2 errors: { "status_code": 4xx, "error": { "reason": "...", "message": "..." }, "meta": {...} }
+     */
+    private fun extractV2Error(body: String): String? {
+        return try {
+            val root = HttpClient.json.parseToJsonElement(body)
+            val errorObj = root.jsonObject?.get("error")?.jsonObject
+            errorObj?.get("message")?.jsonPrimitive?.content
+        } catch (e: Exception) {
+            null
+        }
     }
+
+    private val kotlinx.serialization.json.JsonElement.jsonObject
+        get() = this as? kotlinx.serialization.json.JsonObject
+
+    private val kotlinx.serialization.json.JsonElement.jsonPrimitive
+        get() = this as? kotlinx.serialization.json.JsonPrimitive
     
     private fun saveTokens(tokenResponse: TokenResponse) {
         prefs.edit().apply {
             tokenResponse.access_token?.let { putString(KEY_ACCESS_TOKEN, it) }
             tokenResponse.refresh_token?.let { putString(KEY_REFRESH_TOKEN, it) }
+            tokenResponse.user_id?.let { putLong(KEY_USER_ID, it) }
+            tokenResponse.user_public_id?.let { putString(KEY_USER_PUBLIC_ID, it) }
             tokenResponse.organization_id?.let { 
                 android.util.Log.d("AuthService", "Saving organizationId: $it")
-                putInt(KEY_ORG_ID, it) 
+                putLong(KEY_ORG_ID, it) 
             }
-            tokenResponse.control_security_key?.let { 
-                android.util.Log.d("AuthService", "Saving control security key")
-                putString(KEY_CONTROL_SECRET, it)
-                // Initialize encryption immediately
-                com.sms.edgenode.security.PayloadEncryption.initialize(it)
+            tokenResponse.organization_public_id?.let {
+                android.util.Log.d("AuthService", "Saving organizationPublicId: $it")
+                putString(KEY_ORG_PUBLIC_ID, it)
             }
             tokenResponse.expires_in?.let { 
                 putLong(KEY_TOKEN_EXPIRY, System.currentTimeMillis() + (it * 1000)) 

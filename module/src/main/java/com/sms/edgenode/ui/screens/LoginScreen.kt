@@ -51,7 +51,6 @@ fun LoginScreen(
     val emailFocusRequester = remember { FocusRequester() }
     var passwordVisible by remember { mutableStateOf(false) }
 
-    // Linear animation - no bouncy
     val logoScale by animateFloatAsState(
         targetValue = 1f,
         animationSpec = tween(600, easing = LinearEasing),
@@ -220,7 +219,7 @@ fun LoginScreen(
 
                             val uriHandler = LocalUriHandler.current
                             TextButton(
-                                onClick = { uriHandler.openUri("https://conduit.threelions.co.ke/forgot-password") },
+                                onClick = { uriHandler.openUri("https://dashboard.conduit.threelions.co.ke/auth/forgot-password") },
                                 modifier = Modifier.align(Alignment.End),
                                 contentPadding = PaddingValues(horizontal = DesignTokens.Spacing1)
                             ) {
@@ -288,7 +287,7 @@ fun LoginScreen(
                             )
 
                             Text(
-                                "Enter the 6-digit code sent to your device",
+                                "Enter the 6-digit code sent to your email",
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 textAlign = TextAlign.Center,
@@ -361,7 +360,7 @@ fun LoginScreen(
             Spacer(Modifier.height(48.dp))
 
             Text(
-                "v1.0.0 · Secure Gateway",
+                "v2.0.0 · Secure Gateway",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
             )

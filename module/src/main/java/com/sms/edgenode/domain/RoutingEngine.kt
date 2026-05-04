@@ -34,7 +34,6 @@ class RoutingEngine(
         private const val MAX_ATTEMPTS = 10
         private const val BASE_BACKOFF_MS = 30_000L // 30 seconds
         private const val LEASE_DURATION_MS = 300_000L // 5 minutes
-        private const val BATCH_SIZE = 50
     }
 
     suspend fun processNext(): Boolean = mutex.withLock {
@@ -49,7 +48,6 @@ class RoutingEngine(
             now = now
         )
         if (sms == null) {
-            // No messages to process
             return false
         }
 
@@ -82,63 +80,50 @@ class RoutingEngine(
         val now = System.currentTimeMillis()
         when (action) {
             is RoutingAction.Forward -> {
-                // Check SIM health and select best available
-                // Use per-message SIM slot if specified, otherwise fall back to global preference
-                val preferredSlot = sms.simSlot ?: authService.getPreferredSimSlot()
+                val preferredSlot = sms.simSlot
                 val isSmartFailoverEnabled = authService.isSmartFailoverEnabled()
                 val simStatus = simHealthManager.getStatus(preferredSlot)
                 
                 if (simStatus == SimHealthManager.SimStatus.QUARANTINED) {
-                    // Try failover to another SIM if enabled
                     if (isSmartFailoverEnabled) {
                         val bestSim = simHealthManager.getBestSim(preferredSlot)
                         if (bestSim == preferredSlot) {
-                            // No alternative even with failover, requeue
                             val nextRetry = now + 60_000L
                             database.smsDao().updateStatus(sms.id, SmsStatus.QUEUED, sms.attempts, now, nextRetry, "SIM_QUARANTINED")
                             return
                         }
                     } else {
-                        // Failover disabled, just backoff
                         val nextRetry = now + 120_000L
                         database.smsDao().updateStatus(sms.id, SmsStatus.QUEUED, sms.attempts, now, nextRetry, "SIM_QUARANTINED_NO_FAILOVER")
                         return
                     }
                 }
                 
-                // 1. Resolve Target SIM (Priority: Override > Per-Message > App Preference > System Default)
                 val target = when {
                     overrideSimSlot != null && overrideSimSlot != -1 -> overrideSimSlot
                     sms.simSlot != -1 -> sms.simSlot
                     else -> preferredSlot
                 }
 
-                // If target is still 0 but we want universal default first, we force it to -1
                 val selectedSlot = if (target == 0 && preferredSlot == 0) {
-                    // This handles the case where Slot 0 was auto-saved as preference but the user wants "Free"
                     android.util.Log.d("RoutingEngine", "Auto-correcting SIM 0 to -1 (Universal Default) for Free SMS path")
                     -1
                 } else {
                     target
                 }
 
-                android.util.Log.d("RoutingEngine", "Final routing decision: SIM $selectedSlot")
-
-                // Rate Limit & TPS Enforcement
                 if (!rateLimiter.checkAndUpdate(selectedSlot)) {
-                    val nextRetry = now + 60_000L // Cool down
+                    val nextRetry = now + 60_000L
                     database.smsDao().updateStatus(sms.id, SmsStatus.QUEUED, sms.attempts, now, nextRetry, "RATE_LIMITED")
                     return
                 }
 
-                // Invisible Mode Jitter (Humanized patterns)
                 if (authService.isInvisibleModeEnabled()) {
                     val jitterDelay = Random.nextLong(3_000, 12_000)
                     android.util.Log.d("RoutingEngine", "Invisible Mode: Adding jitter delay of $jitterDelay ms")
                     kotlinx.coroutines.delay(jitterDelay)
                 }
 
-                // 4. SUBMITTED Transition (Hardware Handoff)
                 val accepted = smsManager.sendSms(action.target, sms.body, sms.id, selectedSlot)
                 
                 if (accepted) {
@@ -152,26 +137,26 @@ class RoutingEngine(
             }
             is RoutingAction.SubmitToServer -> {
                 val orgId = authService.getOrganizationId()
-                if (orgId == -1) {
+                if (orgId == -1L) {
                     database.smsDao().updateStatus(sms.id, SmsStatus.HELD, sms.attempts, now, null, "ORG_NOT_FOUND")
                     return
                 }
 
+                // V2 API call — orgId is handled via JWT, so we don't pass it as a parameter anymore.
                 val result = smsApiService.submitSms(
                     sender = sms.sender,
                     message = sms.body,
                     messageId = sms.serverMessageId ?: sms.id.toString(),
                     destination = "SERVER",
-                    sentTimestamp = sms.receivedAt,
-                    organizationId = orgId.toString()
+                    sentTimestamp = sms.receivedAt
                 )
 
                 if (result.isSuccess) {
-                    android.util.Log.i("RoutingEngine", "SMS ${sms.id} successfully submitted to server")
+                    android.util.Log.i("RoutingEngine", "SMS ${sms.id} successfully submitted to V2 server")
                     database.smsDao().markDelivered(sms.id, now)
-                    logEvent("DELIVERED", sms.id, "Successfully submitted to server")
+                    logEvent("DELIVERED", sms.id, "Successfully submitted to V2 server")
                 } else {
-                    val error = result.exceptionOrNull()?.message ?: "Unknown API Error"
+                    val error = result.exceptionOrNull()?.message ?: "Unknown V2 API Error"
                     if (error.contains("404") || error.contains("403")) {
                         onRemoteManagement?.invoke(if (error.contains("404")) 404 else 403)
                     }
@@ -226,8 +211,6 @@ class RoutingEngine(
     }
 
     private suspend fun logEvent(eventType: String, smsId: Long, details: String) {
-        // Audit logic will be handled by AuditLogManager to support hash chaining
-        // For now, we use a basic insert and will refactor later.
         database.auditLogDao().insert(
             AuditLogEntity(
                 timestamp = System.currentTimeMillis(),

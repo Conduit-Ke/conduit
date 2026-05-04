@@ -96,7 +96,6 @@ class SettingsViewModel(
 
     fun updateBundlePurchaseCode(code: String) {
         bundlePurchaseCode = code
-        authService.getUssdBundlePurchaseCode() // This looks like it was intended to be set
         authService.setUssdBundlePurchaseCode(code)
     }
 
@@ -108,21 +107,9 @@ class SettingsViewModel(
 
     fun requestRefill() {
         viewModelScope.launch {
-            isRequestingRefill = true
-            authService.setLastRefillRequestTime(0L)
-            val result = deviceService.requestRefill(refillThreshold)
-            if (result.isSuccess) {
-                _events.emit(SettingsEvent.ShowNotification("Refill request sent to server.", NotificationType.SUCCESS))
-            } else {
-                val error = result.exceptionOrNull()?.message ?: "Unknown Error"
-                val msg = if (error.contains("402")) {
-                    "Error: Organization backend balance is insufficient."
-                } else {
-                    "Refill failed: $error"
-                }
-                _events.emit(SettingsEvent.ShowNotification(msg, NotificationType.ERROR))
-            }
-            isRequestingRefill = false
+            // V2 refactor: Refill requests are handled via the dashboard in the new event-driven architecture.
+            // This feature is currently deprecated in the mobile app.
+            _events.emit(SettingsEvent.ShowNotification("Please manage refill requests via the Conduit dashboard.", NotificationType.INFO))
         }
     }
 

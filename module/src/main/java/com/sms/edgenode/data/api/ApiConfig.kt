@@ -2,40 +2,47 @@ package com.sms.edgenode.data.api
 
 /**
  * API configuration for the SMS Edge Node.
+ * V2 API — Rust/Axum backend.
  */
 object ApiConfig {
-    // Base URL for the API - change for production
-    // Local: http://192.168.2.102:8080/v1  (or use host.docker.internal if in emulator)
-    // Production: https://18.153.158.84/api/v1/app
-    var baseUrl: String = "https://api.conduit.threelions.co.ke/v1"
+    // Base URL for the API — no version prefix; each endpoint carries its own path.
+    // Local: http://192.168.2.102:8080  (or use 10.0.2.2 if in emulator)
+    // Production: https://api.conduit.threelions.co.ke
+    const val BASE_URL = "http://192.168.2.106:3000"
     
     // Connection timeouts
     const val CONNECT_TIMEOUT_MS = 30_000
     const val READ_TIMEOUT_MS = 30_000
     
-    // Endpoints
+    // Endpoints — V2 API
     object Endpoints {
-        const val LOGIN = "/auth/login"
-        const val VERIFY_OTP = "/auth/verify-otp"
-        const val RESEND_OTP = "/auth/resend-otp"
-        const val REFRESH = "/auth/refresh"
-        const val LOGOUT = "/auth/logout"
-        const val ME = "/auth/me"
-        const val PROVISIONING = "/auth/provisioning"
+        // ── Mobile Auth (unversioned, top-level) ──
+        const val LOGIN = "/mobile/login"
+        const val REGISTER = "/mobile/register"
+        const val VERIFY_OTP = "/mobile/verify_otp"
+        const val REFRESH = "/mobile/refresh"
+        const val LOGOUT = "/mobile/logout"
+        const val ME = "/me"
         
-        const val DEVICE_REGISTER = "/devices/register"
-        const val DEVICE_STATUS = "/devices/{identifier}/status"
-        const val DEVICE_VERIFY = "/devices/{identifier}/verify"
-        const val DEVICE_HEARTBEAT = "/devices/{identifier}/heartbeat"
-        const val DEVICE_TELEMETRY = "/devices/{identifier}/telemetry"
-        const val DEVICE_FCM_TOKEN = "/devices/{identifier}/fcm-token"
-        const val DEVICE_METRICS = "/devices/{identifier}/metrics"
-        const val DEVICE_REFILL = "/devices/{identifier}/refill"
+        // ── Provisioning (V2 scoped) ──
+        const val PROVISIONING = "/v2/provisioning/"
         
-        const val SMS_RECEIVE = "/devices/{identifier}/receive"
-        const val SMS_BATCH = "/devices/{identifier}/receive-batch"
-        const val SMS_STATUS = "/devices/{identifier}/status"
-        const val SMS_STATUS_BATCH = "/devices/{identifier}/status-batch"
-        const val SMS_QUOTA = "/devices/{identifier}/quota"
+        // ── Network / Device Management (V2 scoped) ──
+        const val DEVICE_LIST = "/v2/network/devices"
+        const val DEVICE_CREATE = "/v2/network/devices"
+        const val DEVICE_GET = "/v2/network/devices/{public_id}"
+        const val DEVICE_UPDATE = "/v2/network/devices/{public_id}"
+        
+        // ── System / Device Operations (V2 scoped) ──
+        const val DEVICE_PING = "/v2/system/devices/ping"
+        const val DEVICE_STATUS_UPDATE = "/v2/system/devices/status"
+        
+        // ── SMS Ingress (V2 scoped) ──
+        const val SMS_INGRESS = "/v2/sms/ingress"
+        const val SMS_INGRESS_BATCH = "/v2/sms/ingress/batch"
+        
+        // ── SMS Status Reporting (V2 scoped) ──
+        const val SMS_STATUS = "/v2/sms/status"
+        const val SMS_STATUS_BATCH = "/v2/sms/status/batch"
     }
 }
