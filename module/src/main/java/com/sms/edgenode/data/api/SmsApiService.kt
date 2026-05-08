@@ -37,6 +37,7 @@ class SmsApiService(private val authService: AuthService) {
         val message_id: String,
         val sent_timestamp: Long,
         val destination: String? = null,
+        val channel: String? = "mobile",
         val correlation_id: String? = null
     )
 
@@ -90,16 +91,17 @@ class SmsApiService(private val authService: AuthService) {
         // In V2, we don't encrypt ingress data at the application layer yet, 
         // as the server needs to read the sender and message for routing/keywords.
         // It's already protected by HTTPS and JWT.
-        val request = SmsIngressItem(
+        val item = SmsIngressItem(
             sender = sender,
             message = message,
             message_id = messageId,
             sent_timestamp = sentTimestamp,
             destination = destination,
+            channel = "mobile",
             correlation_id = correlationId
         )
 
-        val jsonBody = HttpClient.json.encodeToString(request)
+        val jsonBody = HttpClient.json.encodeToString(item)
         val response = HttpClient.postJson(
             ApiConfig.Endpoints.SMS_INGRESS,
             jsonBody,
