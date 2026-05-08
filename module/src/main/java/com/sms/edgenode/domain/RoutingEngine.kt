@@ -148,7 +148,8 @@ class RoutingEngine(
                     message = sms.body,
                     messageId = sms.serverMessageId ?: sms.id.toString(),
                     destination = "SERVER",
-                    sentTimestamp = sms.receivedAt
+                    sentTimestamp = sms.receivedAt,
+                    correlationId = sms.correlationId
                 )
 
                 if (result.isSuccess) {

@@ -36,7 +36,8 @@ class SmsApiService(private val authService: AuthService) {
         val message: String,
         val message_id: String,
         val sent_timestamp: Long,
-        val destination: String? = null
+        val destination: String? = null,
+        val correlation_id: String? = null
     )
 
     @Serializable
@@ -49,7 +50,8 @@ class SmsApiService(private val authService: AuthService) {
         val egress_id: Long,
         val status: String, // e.g. "delivered", "failed"
         val error_message: String? = null,
-        val timestamp: Long
+        val timestamp: Long,
+        val correlation_id: String? = null
     )
 
     @Serializable
@@ -79,7 +81,8 @@ class SmsApiService(private val authService: AuthService) {
         message: String,
         messageId: String,
         destination: String? = null,
-        sentTimestamp: Long
+        sentTimestamp: Long,
+        correlationId: String? = null
     ): Result<IngressResponse> {
         val token = authService.getAccessToken()
             ?: return Result.failure(Exception("Not authenticated"))
@@ -92,7 +95,8 @@ class SmsApiService(private val authService: AuthService) {
             message = message,
             message_id = messageId,
             sent_timestamp = sentTimestamp,
-            destination = destination
+            destination = destination,
+            correlation_id = correlationId
         )
 
         val jsonBody = HttpClient.json.encodeToString(request)
@@ -120,14 +124,7 @@ class SmsApiService(private val authService: AuthService) {
         val token = authService.getAccessToken()
             ?: return Result.failure(Exception("Not authenticated"))
         
-        val encryptedBatch = batch.map { item ->
-            item.copy(
-                sender = com.sms.edgenode.security.PayloadEncryption.encrypt(item.sender) ?: item.sender,
-                message = com.sms.edgenode.security.PayloadEncryption.encrypt(item.message) ?: item.message
-            )
-        }
-
-        val jsonBody = HttpClient.json.encodeToString(SmsIngressBatchRequest(encryptedBatch))
+        val jsonBody = HttpClient.json.encodeToString(SmsIngressBatchRequest(batch))
         val response = HttpClient.postJson(
             ApiConfig.Endpoints.SMS_INGRESS_BATCH,
             jsonBody,
@@ -148,7 +145,8 @@ class SmsApiService(private val authService: AuthService) {
         egressId: Long,
         status: String,
         errorMessage: String? = null,
-        timestamp: Long = System.currentTimeMillis()
+        timestamp: Long = System.currentTimeMillis(),
+        correlationId: String? = null
     ): Result<StatusReportResponse> {
         val token = authService.getAccessToken()
             ?: return Result.failure(Exception("Not authenticated"))
@@ -157,7 +155,8 @@ class SmsApiService(private val authService: AuthService) {
             egress_id = egressId,
             status = status,
             error_message = errorMessage,
-            timestamp = timestamp
+            timestamp = timestamp,
+            correlation_id = correlationId
         )
 
         val jsonBody = HttpClient.json.encodeToString(report)
@@ -208,7 +207,8 @@ class SmsApiService(private val authService: AuthService) {
         val request_id: String? = null,
         val timestamp: Long,
         val sim_slot: Int? = null,
-        val carrier: String? = null
+        val carrier: String? = null,
+        val correlation_id: String? = null
     )
 
     /**
@@ -221,7 +221,8 @@ class SmsApiService(private val authService: AuthService) {
                 egress_id = it.request_id?.toLongOrNull() ?: 0L,
                 status = it.status.lowercase(),
                 error_message = it.error,
-                timestamp = it.timestamp
+                timestamp = it.timestamp,
+                correlation_id = it.correlation_id
             )
         }
         return submitStatusBatch(reports)

@@ -55,40 +55,10 @@ class RoutingService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         android.util.Log.d("RoutingService", "onStartCommand triggered")
-        scope.launch {
-            // Perform database cleanup (keep last 30 days)
-            val thirtyDaysAgo = System.currentTimeMillis() - (30L * 24 * 60 * 60 * 1000)
-            database.smsDao().deleteOldMessages(thirtyDaysAgo)
-            database.auditLogDao().deleteOldLogs(thirtyDaysAgo)
-
-            // Auto-register or re-activate device if we have organizationId
-            val orgId = authService.getOrganizationId()
-            android.util.Log.d("RoutingService", "Current organizationId: $orgId")
-            
-            if (orgId != -1L) {
-                restoreDeviceRegistration(orgId)
-            } else {
-                android.util.Log.w("RoutingService", "No organizationId found, skipping restoration")
-            }
-
-            // Recovery: Release any leases belonging to this node (e.g. after crash)
-            database.smsDao().releaseLeases(nodeId)
-            
-            // Requeue HELD messages and recover stale RECEIVED messages
-            database.smsDao().requeueHeld()
-            database.smsDao().recoverStuckReceived(System.currentTimeMillis() - 300000)
-
-            // Requeue recent failures (last 2 hours) to rescue messages from registration errors
-            val failureThreshold = System.currentTimeMillis() - (2L * 60 * 60 * 1000)
-            val requeued = database.smsDao().requeueRecentFailures(failureThreshold)
-            if (requeued > 0) {
-                android.util.Log.i("RoutingService", "Requeued $requeued failed/expired messages for retry")
-            }
-            
-            // Promote stale SUBMITTED messages
-            val threshold = System.currentTimeMillis() - 60_000L
-            database.smsDao().promoteSubmitted(threshold, System.currentTimeMillis())
-        }
+        
+        // Trigger self-healing immediately on start and ensure it's scheduled periodically
+        SelfHealingWorker.runOnce(applicationContext)
+        SelfHealingWorker.schedule(applicationContext)
         
         if (syncJob?.isActive != true) {
             syncJob = scope.launch { statusSyncLoop() }
@@ -121,30 +91,7 @@ class RoutingService : Service() {
         }
     }
 
-    private suspend fun restoreDeviceRegistration(orgId: Long) {
-        val isRegisteredLocally = deviceService.isRegistered()
-        android.util.Log.d("RoutingService", "Restoration check: isRegisteredLocally=$isRegisteredLocally")
-        
-        if (isRegisteredLocally) {
-            val verifyResult = deviceService.verify()
-            if (verifyResult.isFailure) {
-                android.util.Log.w("RoutingService", "Device session invalid on server. Re-registering...")
-                performRegistration(orgId)
-            } else {
-                android.util.Log.d("RoutingService", "Device already registered and verified")
-            }
-        } else {
-            performRegistration(orgId)
-        }
-    }
 
-    private suspend fun performRegistration(orgId: Long) {
-        val deviceName = "${Build.MANUFACTURER} ${Build.MODEL}"
-        android.util.Log.i("RoutingService", "Performing full registration for: $deviceName")
-        deviceService.register(deviceName, orgId).onFailure { e ->
-            android.util.Log.e("RoutingService", "Device registration failed: ${e.message}")
-        }
-    }
 
     private suspend fun processQueue(simSlot: Int) = withContext(Dispatchers.Default) {
         val rateLimiter = com.sms.edgenode.sender.RateLimiter(database, applicationContext)
@@ -286,7 +233,8 @@ class RoutingService : Service() {
                 request_id = it.serverMessageId,
                 timestamp = it.timestamp,
                 sim_slot = it.simSlot,
-                carrier = it.carrier
+                carrier = it.carrier,
+                correlation_id = it.correlationId
             )
         }
 

@@ -137,7 +137,8 @@ class SmsStatusReceiver : BroadcastReceiver(), KoinComponent {
                     timestamp = System.currentTimeMillis(),
                     simSlot = sms.simSlot,
                     carrier = null,
-                    message = sms.body
+                    message = sms.body,
+                    correlationId = sms.correlationId
                 )
             )
             
@@ -168,7 +169,8 @@ class SmsStatusReceiver : BroadcastReceiver(), KoinComponent {
                     timestamp = now,
                     simSlot = sms.simSlot,
                     carrier = null,
-                    message = sms.body
+                    message = sms.body,
+                    correlationId = sms.correlationId
                 )
             )
             

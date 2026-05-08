@@ -51,6 +51,7 @@ class SmsReceiver : BroadcastReceiver(), KoinComponent {
         
         val isCarrier = isCarrierMessage(sender, body)
         val shouldForward = isCarrier || deviceService.shouldForward(sender, body)
+        val correlationId = java.util.UUID.randomUUID().toString()
         
         val entity = com.sms.edgenode.data.db.SmsEntity(
             contentFingerprint = hash,
@@ -63,7 +64,8 @@ class SmsReceiver : BroadcastReceiver(), KoinComponent {
                 isCarrier -> com.sms.edgenode.data.db.SmsStatus.SYSTEM
                 shouldForward -> com.sms.edgenode.data.db.SmsStatus.RECEIVED
                 else -> com.sms.edgenode.data.db.SmsStatus.IGNORED
-            }
+            },
+            correlationId = correlationId
         )
 
         val entityId = db.smsDao().insert(entity)

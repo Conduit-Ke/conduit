@@ -47,7 +47,8 @@ data class SmsEntity(
     val nodeId: String? = null,
     val leaseAt: Long? = null,
     val ttlMs: Long? = null,
-    val priority: Int = 0
+    val priority: Int = 0,
+    val correlationId: String? = null
 )
 
 @Entity(tableName = "routing_rules")
@@ -94,7 +95,8 @@ data class PendingStatusEntity(
     val timestamp: Long,
     val simSlot: Int? = null,
     val carrier: String? = null,
-    val message: String? = null
+    val message: String? = null,
+    val correlationId: String? = null
 )
 
 @Dao
@@ -235,7 +237,7 @@ interface PendingStatusDao {
         RateLimitEntity::class,
         PendingStatusEntity::class
     ],
-    version = 6,
+    version = 7,
     exportSchema = false
 )
 @TypeConverters(Converters::class)

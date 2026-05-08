@@ -51,3 +51,10 @@ val MIGRATION_2_3 = object : Migration(2, 3) {
         } catch (e: Exception) { /* Ignore */ }
     }
 }
+
+val MIGRATION_6_7 = object : Migration(6, 7) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE sms_queue ADD COLUMN correlationId TEXT")
+        db.execSQL("ALTER TABLE pending_status_updates ADD COLUMN correlationId TEXT")
+    }
+}

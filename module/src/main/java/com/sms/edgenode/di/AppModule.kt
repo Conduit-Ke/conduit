@@ -47,7 +47,11 @@ val appModule = module {
             "edge_node_db"
         )
             .openHelperFactory(net.sqlcipher.database.SupportFactory(dbKey))
-            .addMigrations(com.sms.edgenode.data.db.MIGRATION_1_2, com.sms.edgenode.data.db.MIGRATION_2_3)
+            .addMigrations(
+                com.sms.edgenode.data.db.MIGRATION_1_2, 
+                com.sms.edgenode.data.db.MIGRATION_2_3,
+                com.sms.edgenode.data.db.MIGRATION_6_7
+            )
             .fallbackToDestructiveMigration()
             .build()
     }

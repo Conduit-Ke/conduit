@@ -13,6 +13,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import org.koin.android.ext.android.inject
+import com.sms.edgenode.service.SelfHealingWorker
 
 class FcmService : FirebaseMessagingService() {
     private val scope = CoroutineScope(Dispatchers.IO)
@@ -91,9 +92,21 @@ class FcmService : FirebaseMessagingService() {
                 "SEND_SMS" -> handleSendSms(fullData)
                 "CONTROL_COMMAND" -> handleControlCommand(fullData)
                 "UPDATE_RULES" -> handleRuleUpdate(fullData)
+                "CONFIG_UPDATE" -> handleConfigUpdate(fullData)
             }
         } else {
             android.util.Log.w("FcmService", "Message skipped: signature=${signature != null}, payload=${encryptedPayload != null}")
+        }
+    }
+
+    private fun handleConfigUpdate(data: Map<String, String>) {
+        android.util.Log.i("FcmService", "Received CONFIG_UPDATE signal")
+        scope.launch {
+            // Trigger self-healing which will re-verify registration and pull updates
+            SelfHealingWorker.runOnce(applicationContext)
+            
+            // Log the event
+            auditLogManager.logEvent("CONFIG_UPDATE_SIGNAL", null, "Triggered via FCM")
         }
     }
 
